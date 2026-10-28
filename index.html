@@ -1,0 +1,3097 @@
+<!DOCTYPE html>
+<html lang="es" translate="no" class="notranslate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon GO Raid & Battle Assistant</title>
+    <!-- Recursos incluidos en la carpeta imágenes/ -->
+    <link rel="icon" type="image/jpeg" href="imágenes/favicon.jpg">
+    <link rel="apple-touch-icon" href="imágenes/favicon.jpg">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add('no-tailwind')"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        pixel: ['"Press Start 2P"', 'monospace'],
+                    },
+                    colors: {
+                        pokemon: {
+                            red: '#FF0000',
+                            blue: '#0075BE',
+                            yellow: '#FFCC01',
+                            darkblue: '#0A182E',
+                            gold: '#D4AF37'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #60a5fa;
+        }
+
+        /* Fondo TCG local: imágenes/fondo.jpg */
+        .bg-tcg-pattern {
+            background-color: #0b0f19;
+            background-image: 
+                linear-gradient(rgba(11, 15, 25, 0.75), rgba(11, 15, 25, 0.85)),
+                url('imágenes/fondo.jpg'),
+                radial-gradient(circle at 50% 50%, rgba(30, 58, 138, 0.25) 0%, transparent 60%),
+                radial-gradient(rgba(234, 179, 8, 0.08) 1px, transparent 0);
+            background-size: 100% 100%, cover, 100% 100%, 24px 24px;
+            background-position: center center, center center, center, 0 0;
+            background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+            background-attachment: fixed, fixed, scroll, scroll;
+        }
+
+        /* Fondo de batalla: SOLO tu imagen (imágenes/fondo-batalla.jpg) en toda la interfaz */
+        .bg-battle-stage {
+            background-color: #0b1020;
+            background-image: url('imágenes/fondo-batalla.jpg');
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            position: relative;
+        }
+
+        /* Scanlines en ::after para no pisar la imagen */
+        .scanlines {
+            position: relative;
+        }
+        .scanlines::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 25;
+            pointer-events: none;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.15) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.02),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.02)
+            );
+            background-size: 100% 3px, 6px 100%;
+        }
+
+        /* CRT Flicker Effect */
+        @keyframes crtFlicker {
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
+        }
+        .crt-screen {
+            animation: crtFlicker 0.15s infinite;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 6px); }
+            40% { transform: translate(10px, -6px); }
+            60% { transform: translate(-6px, 4px); }
+            80% { transform: translate(6px, -4px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes attackTackleEnemy {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(-60px, 40px) scale(1.15); }
+            100% { transform: translate(0, 0); }
+        }
+        .animate-attack-enemy {
+            animation: attackTackleEnemy 0.35s ease-in-out;
+        }
+
+        @keyframes attackTacklePlayer {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(60px, -40px) scale(1.15); }
+            100% { transform: translate(0, 0); }
+        }
+        .animate-attack-player {
+            animation: attackTacklePlayer 0.35s ease-in-out;
+        }
+
+        @keyframes floatIdle {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: floatIdle 2.5s ease-in-out infinite;
+        }
+
+        @keyframes damagePop {
+            0% { opacity: 0; transform: translateY(0) scale(0.5); }
+            50% { opacity: 1; transform: translateY(-20px) scale(1.3); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1); }
+        }
+        .damage-popup {
+            animation: damagePop 0.8s ease-out forwards;
+        }
+
+        /* PROJECTILE ANIMATIONS */
+        @keyframes projectileToEnemy {
+            0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translate(260px, -140px) scale(1.4); opacity: 0; }
+        }
+        @keyframes projectileToPlayer {
+            0% { transform: translate(0, 0) scale(0.6); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translate(-260px, 140px) scale(1.4); opacity: 0; }
+        }
+
+        .proj-player { animation: projectileToEnemy 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+        .proj-enemy { animation: projectileToPlayer 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+
+        /* ANIMACIONES Y EFECTOS PERSONALIZADOS POR TIPO DE ATAQUE */
+        
+        /* Fuego: Bola de fuego con llama naranjo-amarillo */
+        .fx-fire {
+            background: radial-gradient(circle, #fef08a 20%, #f97316 60%, #ea580c 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 25px #f97316, 0 0 45px #fef08a;
+        }
+
+        /* Agua: Bola azul con rastro de gotas */
+        .fx-water {
+            background: radial-gradient(circle, #bfdbfe 20%, #3b82f6 70%, #1d4ed8 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 20px #3b82f6;
+        }
+        .fx-water::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #60a5fa;
+            border-radius: 50%;
+            box-shadow: -12px 10px 0 #3b82f6, -24px 18px 0 #93c5fd, -36px 26px 0 #2563eb;
+        }
+
+        /* Veneno: Bola lila con rastro de gotas lila */
+        .fx-poison {
+            background: radial-gradient(circle, #f5d0fe 20%, #c084fc 70%, #9333ea 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 20px #c084fc;
+        }
+        .fx-poison::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #e879f9;
+            border-radius: 50%;
+            box-shadow: -12px 10px 0 #c084fc, -24px 18px 0 #f0abfc, -36px 26px 0 #a855f7;
+        }
+
+        /* Planta: Ataque verde con forma de raíces creciendo hacia el rival */
+        .fx-grass {
+            background: linear-gradient(135deg, #4ade80, #15803d);
+            clip-path: polygon(10% 100%, 20% 40%, 35% 70%, 50% 20%, 65% 80%, 80% 30%, 90% 100%, 50% 60%);
+            box-shadow: 0 0 20px #22c55e;
+        }
+
+        /* Volador: Tajos de aire / viento */
+        .fx-flying {
+            background: transparent;
+            border-top: 5px solid #e0f2fe;
+            border-right: 5px solid #7dd3fc;
+            border-radius: 50%;
+            transform: rotate(-45deg);
+            box-shadow: 0 -5px 15px #38bdf8;
+        }
+
+        /* Bicho: Tajo verde */
+        .fx-bug {
+            background: transparent;
+            border-top: 6px solid #84cc16;
+            border-right: 6px solid #4d7c0f;
+            border-radius: 40%;
+            transform: rotate(-30deg);
+            box-shadow: 0 -5px 15px #a3e635;
+        }
+
+        /* Fantasma: Tajos de aire morados */
+        .fx-ghost {
+            background: transparent;
+            border-top: 6px solid #c084fc;
+            border-right: 6px solid #7e22ce;
+            border-radius: 50%;
+            transform: rotate(-45deg);
+            box-shadow: 0 -5px 20px #a855f7;
+        }
+
+        /* Dragón: Tajos tipo garra celeste por el aire */
+        .fx-dragon {
+            background: transparent;
+            box-shadow: -8px -8px 0 2px #38bdf8, 0px 0px 0 2px #7dd3fc, 8px 8px 0 2px #0284c7;
+            transform: rotate(-35deg);
+        }
+
+        /* Eléctrico: Rayo amarillo intenso / Bola electrificada */
+        .fx-electric {
+            background: radial-gradient(circle, #fef08a 30%, #eab308 100%);
+            clip-path: polygon(50% 0%, 65% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            box-shadow: 0 0 30px #facc15, 0 0 50px #eab308;
+        }
+
+        /* Oscuro: Bola de sombra negra */
+        .fx-dark {
+            background: radial-gradient(circle, #334155 10%, #0f172a 70%, #000000 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 25px #020617, inset 0 0 10px #581c87;
+        }
+
+        /* Hada: Rayo rosa soltando partículas */
+        .fx-fairy {
+            background: radial-gradient(circle, #fbcfe8 20%, #f472b6 70%, #db2777 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 25px #f472b6;
+        }
+        .fx-fairy::after {
+            content: '✨';
+            font-size: 14px;
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Roca: Caída de rocas */
+        @keyframes rockFall {
+            0% { transform: translateY(-100px) scale(0.5); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .fx-rock {
+            background: #78350f;
+            border: 3px solid #451a03;
+            border-radius: 20% 50% 30% 70%;
+            box-shadow: 0 0 15px #92400e;
+            animation: rockFall 0.4s ease-in forwards !important;
+        }
+
+        /* Hielo: Glacial con varias puntas */
+        .fx-ice {
+            background: linear-gradient(135deg, #e0f2fe 0%, #38bdf8 100%);
+            clip-path: polygon(50% 0%, 65% 25%, 100% 50%, 65% 75%, 50% 100%, 35% 75%, 0% 50%, 35% 25%);
+            box-shadow: 0 0 25px #38bdf8;
+        }
+
+        /* Psíquico: Onda mística */
+        .fx-psychic {
+            background: radial-gradient(circle, #fbcfe8 10%, #f472b6 50%, #db2777 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 30px #f472b6;
+        }
+
+        /* Normal / Lucha: Solo acercarse e impactar (sin proyectil visual) */
+        .fx-none {
+            display: none !important;
+        }
+
+        /* Card Glow */
+        .tcg-card-glow {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .tcg-card-glow:hover {
+            box-shadow: 0 0 25px rgba(234, 179, 8, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+    
+
+    /* ========== BATTLE: MODO COMPUTADOR (desktop) ==========
+       Izquierda = controles (selección + ataques)
+       Derecha   = pantalla de batalla con los Pokémon */
+    body.mode-desktop #battle-modal {
+      padding: 1rem !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    body.mode-desktop #battle-window {
+      max-width: min(1100px, 96vw) !important;
+      width: 100% !important;
+      height: min(720px, 92dvh) !important;
+      max-height: 92dvh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      border-radius: 1rem !important;
+    }
+    body.mode-desktop #battle-header {
+      flex: 0 0 auto !important;
+    }
+    body.mode-desktop #battle-body {
+      display: flex !important;
+      flex-direction: row !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+    /* Controles a la IZQUIERDA */
+    body.mode-desktop #battle-controls {
+      order: 1 !important;
+      width: 38% !important;
+      max-width: 420px !important;
+      flex: 0 0 38% !important;
+      height: 100% !important;
+      max-height: none !important;
+      overflow-y: auto !important;
+      border-right: 2px solid #334155 !important;
+      border-bottom: none !important;
+      padding: 1rem 1.1rem !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.75rem !important;
+    }
+    body.mode-desktop #battle-message {
+      font-size: 11px !important;
+      line-height: 1.35 !important;
+    }
+    body.mode-desktop #moves-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 0.5rem !important;
+      flex: 1 1 auto !important;
+    }
+    body.mode-desktop #moves-grid button {
+      min-height: 3.25rem !important;
+      padding: 0.55rem 0.65rem !important;
+    }
+    body.mode-desktop #battle-controls .grid.grid-cols-1 {
+      grid-template-columns: 1fr !important;
+      gap: 0.65rem !important;
+    }
+    /* Pantalla de batalla a la DERECHA */
+    body.mode-desktop #battle-stage {
+      order: 2 !important;
+      width: 62% !important;
+      flex: 1 1 62% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      border-bottom: none !important;
+      border-left: none !important;
+      padding: 1.25rem !important;
+    }
+    body.mode-desktop #battle-stage img {
+      max-height: 38vh !important;
+      width: auto !important;
+    }
+    body.mode-desktop #battle-stage > div:nth-of-type(2) > div:last-child,
+    body.mode-desktop #battle-stage > div:nth-of-type(3) > div:first-child {
+      width: 42% !important;
+      max-height: 42vh !important;
+    }
+    body.mode-desktop #battle-stage > div:nth-of-type(2) > div:first-child,
+    body.mode-desktop #battle-stage > div:nth-of-type(3) > div:last-child {
+      width: 48% !important;
+      max-width: 260px !important;
+    }
+
+    /* ========== FIX BATALLA MODO CELULAR ========== */
+    @media (max-width: 900px) {
+      body.mode-mobile #battle-modal { padding: 0 !important; align-items: stretch !important; justify-content: stretch !important; }
+      body.mode-mobile #battle-window { width: 100% !important; max-width: none !important; height: 100vh !important; height: 100dvh !important; max-height: 100vh !important; max-height: 100dvh !important; border-width: 2px !important; border-radius: 0 !important; }
+      body.mode-mobile #battle-header { flex: 0 0 auto; padding: .35rem .7rem !important; min-height: 36px; }
+      body.mode-mobile #battle-header span { font-size: 9px !important; }
+      body.mode-mobile #battle-body { display: flex !important; flex-direction: column !important; flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
+      body.mode-mobile #battle-stage { height: auto !important; min-height: 0 !important; flex: 1 1 auto !important; padding: .4rem !important; border-bottom-width: 2px !important; order: 1 !important; width: 100% !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2), body.mode-mobile #battle-stage > div:nth-of-type(3) { min-height: 0; flex: 1 1 50%; align-items: center !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:first-child, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:last-child { width: 34% !important; max-width: 220px; padding: .35rem !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:first-child span, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:last-child span { font-size: 9px !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:first-child .h-3\.5, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:last-child .h-3\.5 { height: 8px !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:last-child, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:first-child { width: 30% !important; height: 100% !important; max-height: 22vh; }
+      body.mode-mobile #battle-stage img { width: auto !important; height: auto !important; max-width: 100% !important; max-height: 20vh !important; object-fit: contain; }
+      body.mode-mobile #battle-controls { flex: 0 0 auto; padding: .45rem !important; gap: .35rem !important; overflow-y: auto; max-height: 48%; order: 2 !important; width: 100% !important; border-right: none !important; }
+      body.mode-mobile #battle-message { font-size: 9px !important; line-height: 1.25 !important; }
+      body.mode-mobile #battle-modal #moves-grid { grid-template-columns: repeat(4,minmax(0,1fr)) !important; gap: .3rem !important; }
+      body.mode-mobile #moves-grid button { min-width: 0 !important; padding: .35rem !important; }
+      body.mode-mobile #battle-modal .grid.grid-cols-1.sm\:grid-cols-2 { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: .4rem !important; }
+      body.mode-mobile #battle-modal input { font-size: 11px !important; padding: .4rem !important; }
+      body.mode-mobile #battle-modal button { touch-action: manipulation; }
+    }
+    @media (max-width: 900px) and (orientation: landscape) {
+      body.mode-mobile #battle-body { flex-direction: row !important; flex-wrap: nowrap !important; }
+      body.mode-mobile #battle-stage { width: 58% !important; flex: 1 1 58% !important; height: 100% !important; order: 1 !important; }
+      body.mode-mobile #battle-controls { width: 42% !important; flex: 1 1 42% !important; max-height: 100% !important; order: 2 !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2), body.mode-mobile #battle-stage > div:nth-of-type(3) { flex: 1 1 50%; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:last-child, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:first-child { max-height: 24vh; }
+      body.mode-mobile #battle-stage img { max-height: 22vh !important; }
+      body.mode-mobile #battle-modal #moves-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+    }
+    @media (max-width: 900px) and (orientation: portrait) {
+      body.mode-mobile #battle-window { overflow-y: auto !important; }
+      body.mode-mobile #battle-body { overflow-y: auto !important; }
+      body.mode-mobile #battle-stage { min-height: 34vh !important; flex: 0 0 34vh !important; }
+      body.mode-mobile #battle-controls { max-height: none !important; overflow: visible !important; }
+      body.mode-mobile #battle-stage > div:nth-of-type(2) > div:last-child, body.mode-mobile #battle-stage > div:nth-of-type(3) > div:first-child { max-height: 15vh; }
+      body.mode-mobile #battle-stage img { max-height: 14vh !important; }
+      body.mode-mobile #battle-modal #moves-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+    }
+
+    /* Fallback: si no hay clase mode-desktop/mobile (primera carga), tratar como desktop en pantallas grandes */
+    @media (min-width: 901px) {
+      body:not(.mode-mobile) #battle-modal {
+        padding: 1rem !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      body:not(.mode-mobile) #battle-window {
+        max-width: min(1100px, 96vw) !important;
+        width: 100% !important;
+        height: min(720px, 92dvh) !important;
+        max-height: 92dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        border-radius: 1rem !important;
+      }
+      body:not(.mode-mobile) #battle-body {
+        display: flex !important;
+        flex-direction: row !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+      }
+      body:not(.mode-mobile) #battle-controls {
+        order: 1 !important;
+        width: 38% !important;
+        max-width: 420px !important;
+        flex: 0 0 38% !important;
+        height: 100% !important;
+        overflow-y: auto !important;
+        border-right: 2px solid #334155 !important;
+        padding: 1rem 1.1rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+      }
+      body:not(.mode-mobile) #moves-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.5rem !important;
+      }
+      body:not(.mode-mobile) #battle-stage {
+        order: 2 !important;
+        width: 62% !important;
+        flex: 1 1 62% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        border-bottom: none !important;
+        padding: 1.25rem !important;
+      }
+      body:not(.mode-mobile) #battle-stage img {
+        max-height: 38vh !important;
+      }
+    }
+
+    </style>
+
+    <style id="responsive-and-fallback-fixes">
+      :root { color-scheme: dark; --app-bg:#0b1020; --panel:#111a2e; --line:#29364d; --gold:#ffcc01; --muted:#a8b4c8; }
+      *, *::before, *::after { box-sizing:border-box; }
+      html { width:100%; min-width:0; scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+      body { margin:0; min-width:0; width:100%; overflow-x:hidden; background-color:var(--app-bg); color:#f1f5f9; line-height:1.5; }
+      img, video, canvas, svg { max-width:100%; }
+      img { height:auto; }
+      input, button, select, textarea { font:inherit; max-width:100%; }
+      button { touch-action:manipulation; cursor:pointer; }
+      input, select, textarea { min-width:0; }
+      main { min-width:0; }
+      main > *, aside, section, header, footer, article { min-width:0; }
+      table { max-width:100%; }
+      #splash-overlay { overflow-y:auto; }
+      #splash-overlay > div { max-height:calc(100dvh - 2rem); overflow-y:auto; }
+      #battle-modal { overflow-y:auto; align-items:flex-start; }
+      #battle-window { max-height:calc(100dvh - 1.5rem); overflow:auto; margin:auto; }
+      .bg-tcg-pattern { background-color:#0b0f19; background-attachment:scroll,scroll,scroll,scroll; }
+      .bg-battle-stage { background-position:center center !important; background-size:cover !important; background-repeat:no-repeat !important; }
+      #poke-name { overflow-wrap:anywhere; }
+      #suggestions-box { max-width:100%; }
+      .overflow-x-auto { max-width:100%; -webkit-overflow-scrolling:touch; }
+      #volume-slider { width:clamp(3.5rem, 8vw, 5rem); }
+      /* Make the layout adapt smoothly to tablets, phones, and desktop widths. */
+      @media (max-width: 1023px) {
+        header { position:relative !important; }
+        header > div { align-items:flex-start; }
+        main { padding-left:clamp(.75rem, 3vw, 1.25rem) !important; padding-right:clamp(.75rem, 3vw, 1.25rem) !important; }
+      }
+      @media (max-width: 640px) {
+        body { font-size:15px; }
+        header { padding:.65rem .75rem !important; }
+        header > div { gap:.65rem !important; }
+        header > div > div:first-child { gap:.5rem !important; }
+        header h1 { font-size:clamp(.85rem, 4vw, 1rem) !important; flex-wrap:wrap; line-height:1.25 !important; }
+        header .font-pixel { letter-spacing:0; }
+        header > div > div:last-child { width:100%; justify-content:space-between; gap:.5rem !important; }
+        header > div > div:last-child > button { flex:1 1 12rem; justify-content:center; font-size:.65rem !important; padding:.65rem .7rem !important; }
+        main { display:flex !important; flex-direction:column !important; gap:1rem !important; padding-top:1rem !important; padding-bottom:1rem !important; }
+        aside, main > section { width:100% !important; grid-column:auto !important; }
+        aside > div, main > section > div { padding:1rem !important; border-radius:1rem !important; }
+        #sprite-box { width:min(11rem, 60vw) !important; height:min(11rem, 60vw) !important; }
+        #poke-sprite { max-width:80%; max-height:80%; }
+        #poke-name { font-size:1.45rem !important; }
+        #shiny-toggle { transform:scale(1); }
+        #splash-overlay { padding:.6rem !important; }
+        #splash-overlay > div { padding:1.1rem !important; max-height:calc(100dvh - 1.2rem); }
+        #splash-overlay h1 { font-size:clamp(1.3rem, 6vw, 2rem) !important; line-height:1.2 !important; }
+        #splash-overlay .font-pixel { font-size:.58rem !important; line-height:1.6; }
+        #splash-lugia-img { width:7rem !important; height:7rem !important; }
+        button { min-height:2.5rem; }
+        input[type="text"], input[type="search"], input[type="number"], select { width:100%; }
+        #battle-modal { padding:.4rem !important; }
+        #battle-window { width:100% !important; max-height:calc(100dvh - .8rem); border-width:2px !important; }
+        .font-pixel { overflow-wrap:anywhere; }
+        table { font-size:.75rem; }
+        th, td { padding:.45rem .5rem !important; }
+      }
+      @media (min-width: 641px) and (max-width: 1023px) {
+        main { display:grid !important; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) !important; gap:1rem !important; }
+        aside, main > section { grid-column:auto !important; }
+        aside > div, main > section > div { padding:1rem !important; }
+      }
+      @media (min-width: 1024px) {
+        main { max-width:80rem; margin-left:auto; margin-right:auto; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; }
+      }
+      /* Native-CSS safety net if the Tailwind CDN cannot load. */
+      .no-tailwind body { background:#0b0f19; color:#f1f5f9; font-family:Arial, sans-serif; }
+      .no-tailwind body.bg-tcg-pattern { background-image:linear-gradient(rgba(11,15,25,.78),rgba(11,15,25,.88)),url('imágenes/fondo.jpg'); background-position:center; background-size:cover; background-attachment:scroll; }
+      .no-tailwind header { position:relative; z-index:5; padding:1rem; background:rgba(15,23,42,.96); border-bottom:1px solid var(--line); }
+      .no-tailwind header > div { max-width:80rem; margin:auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; }
+      .no-tailwind main { display:grid; grid-template-columns:minmax(16rem, .8fr) minmax(0, 1.7fr); gap:1.25rem; width:100%; max-width:80rem; margin:auto; padding:1.25rem; }
+      .no-tailwind main > aside, .no-tailwind main > section { min-width:0; display:flex; flex-direction:column; gap:1rem; }
+      .no-tailwind main > aside > div, .no-tailwind main > section > div { min-width:0; padding:1.1rem; background:rgba(15,23,42,.94); border:1px solid #29364d; border-radius:1rem; box-shadow:0 10px 24px #0003; }
+      .no-tailwind h1,.no-tailwind h2,.no-tailwind h3,.no-tailwind p { margin-top:0; }
+      .no-tailwind h1,.no-tailwind h2,.no-tailwind h3 { color:#f8fafc; line-height:1.3; }
+      .no-tailwind button { color:#fff; background:#1d4ed8; border:1px solid #52627c; border-radius:.65rem; padding:.65rem .85rem; }
+      .no-tailwind input:not([type=checkbox]):not([type=range]), .no-tailwind select, .no-tailwind textarea { width:100%; padding:.75rem; color:#f8fafc; background:#080e1b; border:1px solid #475569; border-radius:.6rem; }
+      .no-tailwind img { object-fit:contain; }
+      .no-tailwind .hidden { display:none !important; }
+      .no-tailwind .flex { display:flex; }
+      .no-tailwind .flex-wrap { flex-wrap:wrap; }
+      .no-tailwind .items-center { align-items:center; }
+      .no-tailwind .justify-center { justify-content:center; }
+      .no-tailwind .justify-between { justify-content:space-between; }
+      .no-tailwind .grid { display:grid; }
+      .no-tailwind .grid-cols-1 { grid-template-columns:minmax(0,1fr); }
+      .no-tailwind .relative { position:relative; }
+      .no-tailwind .absolute { position:absolute; }
+      .no-tailwind .w-full { width:100%; }
+      .no-tailwind .text-white,.no-tailwind .text-slate-100,.no-tailwind .text-slate-200,.no-tailwind .text-slate-300 { color:#e2e8f0; }
+      .no-tailwind .text-slate-400,.no-tailwind .text-slate-500 { color:#94a3b8; }
+      .no-tailwind .text-yellow-400,.no-tailwind .text-yellow-300 { color:#facc15; }
+      .no-tailwind .bg-slate-950 { background:#080e1b; }
+      .no-tailwind .bg-slate-900,.no-tailwind .bg-slate-900\/80 { background:rgba(15,23,42,.96); }
+      .no-tailwind .bg-slate-800 { background:#1e293b; }
+      .no-tailwind .border,.no-tailwind [class*="border-slate-"] { border-color:#334155; }
+      .no-tailwind #splash-overlay { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:1rem; background:rgba(2,6,23,.96); }
+      .no-tailwind #splash-overlay > div { width:min(100%,42rem); max-height:calc(100dvh - 2rem); overflow:auto; padding:clamp(1rem,4vw,2rem); text-align:center; background:#111827; border:1px solid #a78bfa; border-radius:1.25rem; }
+      @media (max-width: 800px) { .no-tailwind main { grid-template-columns:minmax(0,1fr); padding:.75rem; } .no-tailwind header > div { align-items:flex-start; } }
+      @media (max-width: 480px) { .no-tailwind header > div > div:last-child { width:100%; flex-wrap:wrap; } .no-tailwind header > div > div:last-child > button { flex:1 1 100%; } .no-tailwind #splash-overlay > div { padding:1rem; } }
+    </style>
+    <script>
+      // Detect missing Tailwind utility styles even when the CDN request fails silently.
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          var probe = document.createElement('div');
+          probe.className = 'hidden';
+          probe.style.position = 'absolute';
+          document.body.appendChild(probe);
+          var missing = window.getComputedStyle(probe).display !== 'none';
+          probe.remove();
+          if (missing) document.documentElement.classList.add('no-tailwind');
+        }, 500);
+      });
+    </script>
+
+
+<style id="device-mode-switch-style">
+/* Pantalla de elección de modo — por encima de TODO (splash incluido) */
+#device-mode-screen{
+  position:fixed;inset:0;z-index:99999;pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;overflow-y:auto;
+  background:rgba(2,6,23,.97);
+  -webkit-overflow-scrolling:touch;
+}
+#device-mode-screen[hidden],
+#device-mode-screen.is-hidden{
+  display:none!important;
+}
+.device-panel{
+  width:min(100%,520px);
+  margin:auto;
+  padding:clamp(1.1rem,4vw,2rem);
+  text-align:center;
+  background:#0f172a;
+  border:1px solid rgba(250,204,21,.35);
+  border-radius:1.25rem;
+  box-shadow:0 20px 50px rgba(0,0,0,.55);
+}
+.device-choice{
+  display:flex;flex-direction:column;align-items:flex-start;gap:.45rem;
+  width:100%;
+  padding:1rem 1.05rem;
+  text-align:left;
+  color:#e2e8f0;
+  background:linear-gradient(160deg,#111827 0%,#0b1220 100%);
+  border:1px solid #334155;
+  border-radius:1rem;
+  cursor:pointer;
+  transition:border-color .2s,transform .15s,box-shadow .2s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  min-height:3.5rem;
+}
+.device-choice:hover,
+.device-choice:focus-visible{
+  border-color:#facc15;
+  box-shadow:0 0 0 1px rgba(250,204,21,.35);
+  outline:none;
+}
+.device-choice:active{transform:scale(.98)}
+.device-choice strong{
+  display:block;
+  font-size:.95rem;
+  letter-spacing:.04em;
+  color:#f8fafc;
+}
+.device-choice > span:not(.device-icon){
+  font-size:.78rem;
+  line-height:1.35;
+  color:#94a3b8;
+}
+.device-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:2.4rem;height:2.4rem;
+  margin-bottom:.15rem;
+  border-radius:.7rem;
+  background:rgba(250,204,21,.12);
+  color:#facc15;
+  font-size:1.15rem;
+}
+/* Botón flotante "Cambiar modo" */
+#change-device-mode{
+  position:fixed;right:12px;bottom:12px;z-index:40;
+  display:flex;align-items:center;gap:7px;
+  padding:10px 13px;
+  border:1px solid rgba(250,204,21,.55);
+  border-radius:999px;
+  background:rgba(15,23,42,.94);
+  color:#fde047;
+  font:700 12px/1.2 system-ui,sans-serif;
+  box-shadow:0 5px 20px rgba(0,0,0,.35);
+  cursor:pointer;
+  backdrop-filter:blur(8px);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+#change-device-mode:active{transform:scale(.97)}
+/* Ocultar botón mientras la pantalla de elección está visible */
+body:has(#device-mode-screen:not([hidden]):not(.is-hidden)) #change-device-mode,
+body.choosing-device-mode #change-device-mode{
+  display:none!important;
+}
+body.mode-mobile #change-device-mode{font-size:11px;padding:9px 11px}
+@media(max-width:380px){
+  #change-device-mode{right:8px;bottom:8px;padding:8px 10px}
+  #change-device-mode span{display:none}
+}
+@media(max-width:480px){
+  .device-panel{padding:1rem .9rem}
+  .device-choice{padding:.9rem .85rem}
+}
+</style>
+
+</head>
+<body class="bg-tcg-pattern text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-yellow-400 selection:text-black">
+
+<button id="change-device-mode" type="button" onclick="resetDeviceModeChoice()" aria-label="Cambiar modo de dispositivo" title="Cambiar modo de dispositivo"><i class="fa-solid fa-mobile-screen-button"></i><span>Cambiar modo</span></button>
+
+
+    <!-- DUAL-OPTION SPLASH SCREEN OVERLAY -->
+    <div id="splash-overlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+        <div class="max-w-2xl w-full text-center space-y-6 bg-slate-900/90 border-2 border-yellow-500/40 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+            
+            <!-- Lugia Pixel Sprite Header Title -->
+            <div class="relative flex justify-center items-center my-2">
+                <div class="absolute w-44 h-44 bg-blue-500/20 rounded-full blur-2xl animate-pulse"></div>
+                <img id="splash-lugia-img" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/249.gif" 
+                     alt="Lugia" class="w-40 h-40 object-contain relative z-10 animate-float drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+                     onerror="this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/249.png'">
+            </div>
+            
+            <div class="space-y-2">
+                <h1 class="text-3xl sm:text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 uppercase">
+                    Pokémon GO Assistant
+                </h1>
+                <p class="text-xs sm:text-sm font-pixel text-blue-400">SELECCIONA TU MODO DE JUEGO</p>
+            </div>
+
+            <p class="text-slate-300 text-sm leading-relaxed px-4">
+                Elige entre consultar estadísticas detalladas de Incursión o vivir un combate Pokémon en tiempo real.
+            </p>
+
+            <!-- DUAL PATH LANDING BUTTONS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <!-- Option 1: Information Mode -->
+                <button onclick="enterMode('info')" class="py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold rounded-2xl shadow-xl shadow-blue-500/20 transition-all duration-300 transform hover:scale-[1.03] flex flex-col items-center justify-center gap-2 border border-blue-400/30 group">
+                    <i class="fa-solid fa-circle-info text-2xl text-yellow-300 group-hover:animate-bounce"></i>
+                    <span class="text-sm uppercase tracking-wide">Información de Raid</span>
+                    <span class="text-[10px] text-blue-200 font-normal">Debilidades, Stats & Contadores</span>
+                </button>
+
+                <!-- Option 2: Battle Simulator Mode -->
+                <button onclick="enterMode('battle')" class="py-4 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold rounded-2xl shadow-xl shadow-red-500/20 transition-all duration-300 transform hover:scale-[1.03] flex flex-col items-center justify-center gap-2 border border-red-400/30 group">
+                    <i class="fa-solid fa-gamepad text-2xl text-yellow-300 group-hover:animate-bounce"></i>
+                    <span class="text-sm uppercase tracking-wide font-pixel text-xs text-yellow-300">Battle Simulator</span>
+                    <span class="text-[10px] text-rose-200 font-normal">Combate Retro con Efectos & FX</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="loadPokemon('lugia')">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/249.gif" class="w-10 h-10 object-contain" alt="Lugia">
+                <div>
+                    <h1 class="font-black text-lg tracking-wider text-yellow-400 flex items-center gap-2 leading-none">
+                        POKÉASSISTANT <span class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-sans uppercase">GO & Sim</span>
+                    </h1>
+                    <span class="text-[10px] text-slate-400 font-pixel">RETRO EDITION</span>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Battle Simulator Launcher Button -->
+                <button onclick="openBattleSimulator()" class="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-pixel text-xs rounded-lg shadow-md hover:shadow-red-500/30 transition-all flex items-center gap-2 border border-red-400/40">
+                    <i class="fa-solid fa-gamepad text-yellow-300 text-sm"></i>
+                    <span>POKÉMON BATTLE SIMULATOR</span>
+                </button>
+
+                <!-- Audio Control Panel -->
+                <div class="bg-slate-800/80 border border-slate-700 rounded-lg p-1.5 flex items-center gap-2 text-xs">
+                    <button id="btn-play-audio" onclick="toggleAudio()" class="w-8 h-8 rounded-md bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-yellow-400 transition" title="Play/Pause BG Music">
+                        <i class="fa-solid fa-play" id="icon-play"></i>
+                    </button>
+                    <button id="btn-mute-audio" onclick="toggleMute()" class="w-8 h-8 rounded-md bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 transition" title="Mute/Unmute">
+                        <i class="fa-solid fa-volume-high" id="icon-mute"></i>
+                    </button>
+                    <input id="volume-slider" type="range" min="0" max="100" value="30" oninput="changeVolume(this.value)" class="w-16 accent-yellow-400 cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hidden YouTube iframe for background audio -->
+    <div class="hidden">
+        <div id="youtube-player"></div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT CONTROLS & SEARCH (4 Cols) -->
+        <aside class="lg:col-span-4 space-y-6">
+            
+            <!-- Search Card -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass"></i> Búsqueda de Pokémon
+                </h2>
+                
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Ej: Lugia, Charizard, 250..." 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-yellow-400 transition"
+                           onkeyup="handleSearchKey(event)" oninput="filterSuggestions()">
+                    
+                    <!-- Suggestions Dropdown -->
+                    <div id="suggestions-box" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl max-h-48 overflow-y-auto z-30 hidden shadow-2xl"></div>
+                </div>
+
+                <button onclick="performSearch()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-bolt"></i> Cargar Datos RAID
+                </button>
+
+                <!-- Quick Select Presets -->
+                <div>
+                    <span class="text-xs text-slate-400 block mb-2 font-medium">Búsquedas Rápidas:</span>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="loadPokemon('lugia')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-blue-300 rounded-lg border border-slate-700 transition">Lugia</button>
+                        <button onclick="loadPokemon('mewtwo')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-purple-300 rounded-lg border border-slate-700 transition">Mewtwo</button>
+                        <button onclick="loadPokemon('rayquaza')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-emerald-300 rounded-lg border border-slate-700 transition">Rayquaza</button>
+                        <button onclick="loadPokemon('charizard')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-orange-300 rounded-lg border border-slate-700 transition">Charizard</button>
+                        <button onclick="loadPokemon('gengar')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-indigo-300 rounded-lg border border-slate-700 transition">Gengar</button>
+                        <button onclick="loadPokemon('lucario')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 rounded-lg border border-slate-700 transition">Lucario</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- WEATHER & BOOSTED TYPES CARD -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+                <h2 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun"></i> Clima Local & Boost GO
+                </h2>
+                <div class="flex items-center gap-3 text-sm">
+                    <div class="w-12 h-12 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-2xl" id="weather-icon">🌤️</div>
+                    <div class="flex-1 min-w-0">
+                        <p id="weather-desc" class="font-semibold text-white truncate">Detectando ubicación...</p>
+                        <p id="weather-temp" class="text-xs text-slate-400">Permite la geolocalización</p>
+                    </div>
+                    <button onclick="fetchWeather()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 text-xs" title="Actualizar">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block mb-1.5 font-medium">Tipos potenciados (Pokémon GO):</span>
+                    <div id="boosted-types" class="flex flex-wrap gap-1.5"><span class="text-[10px] text-slate-500">Cargando...</span></div>
+                </div>
+                <p class="text-[9px] text-slate-500 leading-tight">Tipos con boost: mayor nivel (Nv.35), IVs mín. 4/4/4 y +25% Stardust.</p>
+            </div>
+
+            <!-- Quick Battle Simulator Banner -->
+            <div class="bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-xl space-y-3 relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-[10px] font-pixel text-yellow-300 bg-yellow-950/80 px-2 py-0.5 rounded border border-yellow-500/30">NINTENDO MODE</span>
+                        <h3 class="text-base font-bold text-white mt-1">Simulador Retro de Combate</h3>
+                    </div>
+                    <i class="fa-solid fa-gamepad text-3xl text-indigo-400"></i>
+                </div>
+                <p class="text-xs text-slate-300">
+                    Pon a prueba el Pokémon actual contra Rivales Legendarios o IA en un combate por turnos tipo Game Boy con efectos elementales y sonido interactivo.
+                </p>
+                <button onclick="openBattleSimulator()" class="w-full py-2.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-pixel text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-swords"></i> BATALLAR AHORA
+                </button>
+            </div>
+        </aside>
+
+        <!-- RIGHT MAIN CONTENT (8 Cols) -->
+        <section class="lg:col-span-8 space-y-6">
+            
+            <!-- MAIN POKÉMON RAID DISPLAY CARD -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden tcg-card-glow">
+                
+                <!-- Shiny Toggle Switch (más arriba) -->
+                <div class="absolute top-2 right-3 flex items-center gap-1.5 bg-slate-950/90 border border-slate-700 rounded-full px-2.5 py-0.5 text-[10px] z-20">
+                    <i class="fa-solid fa-sparkles text-yellow-400 text-[10px]"></i>
+                    <span class="text-slate-300 font-medium">Variocolor (Shiny)</span>
+                    <input type="checkbox" id="shiny-toggle" onchange="toggleShinyMode()" class="accent-yellow-400 cursor-pointer scale-90">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    
+                    <!-- Sprite & Basic Overview -->
+                    <div class="md:col-span-5 flex flex-col items-center text-center space-y-3">
+                        <div id="sprite-box" class="relative w-48 h-48 flex items-center justify-center bg-slate-950/60 rounded-2xl border border-slate-800 shadow-inner overflow-hidden">
+                            <img id="poke-sprite" src="" alt="Pokemon Sprite" class="w-36 h-36 object-contain animate-float drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] relative z-10">
+                            <!-- Capa de skin/disfraz superpuesta -->
+                            <div id="skin-overlay" class="absolute inset-0 z-20 pointer-events-none hidden flex items-center justify-center">
+                                <div id="skin-overlay-icon" class="absolute text-5xl drop-shadow-lg animate-float" style="top: 8%; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));"></div>
+                            </div>
+                            <div id="active-skin-badge" class="hidden absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-pink-600/95 text-white text-[9px] font-bold rounded-full border border-pink-300 shadow z-30 whitespace-nowrap"></div>
+                        </div>
+                        
+                        <div>
+                            <span id="poke-id" class="text-xs font-pixel text-slate-400">#000</span>
+                            <h2 id="poke-name" class="text-2xl font-black uppercase tracking-wide text-white">---</h2>
+                        </div>
+
+                        <!-- Type Badges Container -->
+                        <div id="poke-types" class="flex gap-2 justify-center"></div>
+                    </div>
+
+                    <!-- GO Base Stats -->
+                    <div class="md:col-span-7 space-y-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                        <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider border-b border-slate-800 pb-2">
+                            Estadísticas Básicas Pokémon GO
+                        </h3>
+
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-slate-400">Ataque Base</span>
+                                    <span id="stat-atk-val" class="font-bold text-red-400">0</span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-2">
+                                    <div id="stat-atk-bar" class="bg-red-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-slate-400">Defensa Base</span>
+                                    <span id="stat-def-val" class="font-bold text-blue-400">0</span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-2">
+                                    <div id="stat-def-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-slate-400">Salud / Estamina</span>
+                                    <span id="stat-sta-val" class="font-bold text-emerald-400">0</span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-2">
+                                    <div id="stat-sta-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                                <span class="text-slate-300 font-semibold">PC Máximo (Nivel 50):</span>
+                                <span id="stat-max-cp" class="text-base font-pixel text-yellow-400">0</span>
+                            </div>
+                            <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                                <span class="text-slate-300 font-semibold flex items-center gap-1">
+                                    <i class="fa-solid fa-star text-amber-400 text-[10px]"></i> PC Máx. Salvaje Perfecto (Nv.35):
+                                </span>
+                                <span id="stat-wild-perfect-cp" class="text-base font-pixel text-amber-400">0</span>
+                            </div>
+                            <p class="text-[9px] text-slate-500 leading-tight mt-1">Si un salvaje alcanza este PC, es 100% IV (15/15/15).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TYPE EFFECTIVENESS MATRIX -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved"></i> Matriz de Efectividad de Tipos (GO Multipliers)
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Weaknesses -->
+                    <div class="bg-slate-950/60 p-4 rounded-xl border border-red-900/30 space-y-2">
+                        <span class="text-xs font-bold text-red-400 block border-b border-red-900/30 pb-1">
+                            Debilidades (Recibe más daño)
+                        </span>
+                        <div id="weakness-list" class="flex flex-wrap gap-2 pt-1"></div>
+                    </div>
+
+                    <!-- Resistances -->
+                    <div class="bg-slate-950/60 p-4 rounded-xl border border-emerald-900/30 space-y-2">
+                        <span class="text-xs font-bold text-emerald-400 block border-b border-emerald-900/30 pb-1">
+                            Resistencias (Recibe menos daño)
+                        </span>
+                        <div id="resistance-list" class="flex flex-wrap gap-2 pt-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EVOLUTION CHAIN & MEGA EVOLUTIONS SECTION -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Evolution Chain -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+                    <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider">
+                        Línea Evolutiva
+                    </h3>
+                    <div id="evo-chain-container" class="flex items-center justify-around gap-2 pt-2 overflow-x-auto min-h-[100px]"></div>
+                </div>
+
+                <!-- Mega Evolutions / Forms -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+                    <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider">
+                        Megaevoluciones / Formas Únicas
+                    </h3>
+                    <div id="megas-container" class="flex flex-wrap gap-3 pt-2"></div>
+                    <div id="form-info-popup" class="hidden mt-3 p-3 bg-slate-950 border border-yellow-500/40 rounded-xl text-xs space-y-1.5 shadow-lg">
+                        <div class="flex justify-between items-start gap-2">
+                            <span id="form-info-title" class="font-bold text-yellow-300 uppercase text-[11px]"></span>
+                            <button type="button" onclick="closeFormInfo()" class="text-slate-500 hover:text-white text-[10px] px-1"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <p id="form-info-how" class="text-slate-300 leading-relaxed whitespace-pre-line"></p>
+                        <p id="form-info-status" class="text-[10px] font-semibold"></p>
+                        <button type="button" id="form-info-load-btn" class="mt-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] rounded-lg transition">Cargar datos de esta forma</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- EXCLUSIVE SKINS / COSTUMES -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+                <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-shirt text-pink-400"></i> Skins / Disfraces Exclusivos
+                </h3>
+                <p class="text-[10px] text-slate-500">Disfraces y formas de evento de este Pokémon (o populares) en Pokémon GO.</p>
+                <div id="skins-container" class="flex flex-wrap gap-3 pt-1 min-h-[120px] items-start">
+                    <span class="text-xs text-slate-500">Cargando skins...</span>
+                </div>
+                <div id="skin-info-popup" class="hidden mt-2 p-3 bg-slate-950 border border-pink-500/40 rounded-xl text-xs space-y-1.5">
+                    <div class="flex justify-between items-start gap-2">
+                        <span id="skin-info-title" class="font-bold text-pink-300 uppercase text-[11px]"></span>
+                        <button type="button" onclick="document.getElementById('skin-info-popup').classList.add('hidden')" class="text-slate-500 hover:text-white text-[10px]"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <img id="skin-info-img" src="" alt="" class="w-16 h-16 object-contain bg-slate-900 rounded-lg border border-slate-700">
+                        <div class="flex-1 space-y-1">
+                            <p id="skin-info-how" class="text-slate-300 leading-relaxed"></p>
+                            <p id="skin-info-status" class="text-[10px] font-semibold"></p>
+                        </div>
+                    </div>
+                    <button type="button" id="skin-probar-btn" class="w-full mt-1 px-3 py-2 bg-pink-600 hover:bg-pink-500 text-white text-[11px] font-bold rounded-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Cargar con esta forma
+                    </button>
+                </div>
+            </div>
+
+            <!-- RAID COUNTERS RECOMMENDATION -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h3 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-400"></i> Top 5 Mejores Contadores para Incursión
+                </h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-[11px] font-pixel text-slate-400 border-b border-slate-800">
+                                <th class="py-2 px-3">Pokémon</th>
+                                <th class="py-2 px-3">Ataque Rápido</th>
+                                <th class="py-2 px-3">Ataque Cargado</th>
+                                <th class="py-2 px-3 text-right">Efectividad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="counters-table-body" class="text-xs divide-y divide-slate-800/60"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+
+    <footer class="max-w-7xl mx-auto w-full px-4 pb-10 pt-2 space-y-6">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun-rain"></i> Clima en Tiempo Real (API Open-Meteo)
+                </h2>
+                <button onclick="fetchWeather()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-lg border border-slate-700 flex items-center gap-1.5"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-slate-950/60 rounded-xl p-4 border border-slate-800 flex items-center gap-3">
+                    <div id="footer-weather-icon" class="text-4xl">🌤️</div>
+                    <div>
+                        <p id="footer-weather-desc" class="font-semibold text-white text-sm">Detectando...</p>
+                        <p id="footer-weather-temp" class="text-xs text-slate-400">Permite la ubicación</p>
+                    </div>
+                </div>
+                <div class="bg-slate-950/60 rounded-xl p-4 border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block mb-1.5">Tipos potenciados ahora:</span>
+                    <div id="footer-boosted-types" class="flex flex-wrap gap-1.5"><span class="text-[10px] text-slate-500">Cargando...</span></div>
+                </div>
+                <div class="bg-slate-950/60 rounded-xl p-4 border border-slate-800 flex flex-col justify-center">
+                    <span class="text-[10px] text-slate-400 mb-1">Fuente</span>
+                    <p class="text-xs text-slate-300">Open-Meteo + geolocalización. En GO el clima cambia cada hora.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN DE INCURSIONES DEL DÍA Y EVENTOS PRÓXIMOS (DINÁMICA) -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                    <h2 class="text-xs font-pixel text-yellow-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days"></i> Informes de Incursiones y Eventos GO
+                    </h2>
+                    <span id="current-date-display" class="text-[10px] text-slate-400 font-mono mt-0.5 block">Cargando fecha actual...</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="updateLiveGOData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-yellow-300 rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-rotate-right" id="refresh-go-icon"></i> Actualizar Fechas
+                    </button>
+                    <img src="https://upload.wikimedia.org/wikipedia/en/thumb/c/c6/Pok%C3%A9mon_GO_logo.png/200px-Pok%C3%A9mon_GO_logo.png" alt="Pokémon GO" class="h-8 object-contain hidden sm:block" onerror="this.style.display='none'">
+                </div>
+            </div>
+
+            <!-- BLOQUE 1: INCURSIONES DEL DÍA EN CURSO -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-slate-200 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-crosshairs text-red-400"></i> Incursiones Disponibles Hoy
+                    </h3>
+                    <a href="https://leekduck.com/raid-bosses/" target="_blank" rel="noopener noreferrer" class="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 hover:underline">
+                        Ver jefes completos en Leek Duck <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                    </a>
+                </div>
+                
+                <div id="today-raids-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <!-- Generado dinámicamente -->
+                </div>
+            </div>
+
+            <!-- BLOQUE 2: EVENTOS PRÓXIMOS ACTUALIZADOS -->
+            <div class="space-y-3 pt-2 border-t border-slate-800/60">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-slate-200 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-amber-400"></i> Próximos Eventos Destacados
+                    </h3>
+                    <a href="https://pokemongolive.com/events" target="_blank" rel="noopener noreferrer" class="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 hover:underline">
+                        Calendario Oficial Pokémon GO <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                    </a>
+                </div>
+
+                <div id="upcoming-events-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    <!-- Generado dinámicamente -->
+                </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-800 flex flex-wrap justify-between items-center text-[10px] text-slate-500 gap-2">
+                <span>Información sincronizada automáticamente según la fecha de tu dispositivo.</span>
+                <div class="flex gap-3">
+                    <a href="https://leekduck.com" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-yellow-400 hover:underline flex items-center gap-1"><i class="fa-solid fa-link text-[8px]"></i> LeekDuck</a>
+                    <a href="https://pokemongohub.net" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-yellow-400 hover:underline flex items-center gap-1"><i class="fa-solid fa-link text-[8px]"></i> GO Hub</a>
+                    <a href="https://pokemongolive.com" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-yellow-400 hover:underline flex items-center gap-1"><i class="fa-solid fa-link text-[8px]"></i> Oficial</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-blue-900/40 via-slate-900 to-red-900/40 border border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-center sm:text-left">
+                <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-mobile-screen-button text-yellow-400"></i> ¿Listo para cazar?</h3>
+                <p class="text-xs text-slate-400 mt-1">Abre Pokémon GO desde aquí</p>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+                <a href="https://play.google.com/store/apps/details?id=com.nianticlabs.pokemongo" target="_blank" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-2"><i class="fa-brands fa-google-play"></i> Google Play</a>
+                <a href="https://apps.apple.com/app/pokemon-go/id1099223234" target="_blank" class="px-4 py-2.5 bg-slate-100 hover:bg-white text-slate-900 text-xs font-bold rounded-xl flex items-center gap-2"><i class="fa-brands fa-apple"></i> App Store</a>
+                <a href="pokemongo://" class="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-bold rounded-xl flex items-center gap-2"><i class="fa-solid fa-gamepad"></i> Abrir Pokémon GO</a>
+            </div>
+        </div>
+        <p class="text-center text-[10px] text-slate-600">PokéAssistant · PokeAPI + Open-Meteo · No afiliado a Niantic</p>
+    </footer>
+
+    <!-- BATTLE SIMULATOR MODAL -->
+    <div id="battle-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 hidden">
+        
+        <div id="battle-window" class="w-full max-w-4xl bg-battle-stage border-4 border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col relative font-pixel">
+            
+            <!-- Modal Header Bar -->
+            <div id="battle-header" class="bg-slate-900/75 backdrop-blur-sm px-4 py-3 border-b-2 border-slate-700 flex justify-between items-center flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-gamepad text-yellow-400 text-lg"></i>
+                    <span class="text-xs text-yellow-300">NINTENDO BATTLE ARENA</span>
+                </div>
+                <button onclick="closeBattleSimulator()" class="text-slate-400 hover:text-white text-sm font-sans px-2 py-1 bg-slate-700 rounded">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Body: left controls + right stage (desktop) / stacked (mobile) -->
+            <div id="battle-body" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+
+                <!-- RETRO STAGE -->
+                <div id="battle-stage" class="relative w-full h-96 sm:h-[450px] bg-transparent border-b-4 border-slate-700/60 overflow-hidden scanlines crt-screen p-6 flex flex-col justify-between flex-shrink-0">
+                    
+                    <!-- Particle Layer for Damage & Attacks -->
+                    <div id="fx-layer" class="absolute inset-0 pointer-events-none z-30"></div>
+
+                    <!-- ENEMY PLATFORM -->
+                    <div class="flex justify-between items-start w-full relative z-10">
+                        
+                        <!-- Enemy Status Card -->
+                        <div class="bg-slate-950/90 border-2 border-slate-400 rounded-xl p-3 w-56 sm:w-64 shadow-xl">
+                            <div class="flex justify-between items-center text-xs text-white">
+                                <span id="enemy-name" class="uppercase font-bold">RIVAL</span>
+                                <span id="enemy-lvl" class="text-yellow-400">Lv.50</span>
+                            </div>
+                            <div class="mt-1.5 bg-slate-800 border border-slate-600 rounded-full h-3.5 p-0.5 flex items-center">
+                                <div id="enemy-hp-bar" class="bg-emerald-400 h-full rounded-full transition-all duration-300 w-full"></div>
+                            </div>
+                            <div class="flex justify-between text-[9px] text-slate-300 mt-1">
+                                <span>HP</span>
+                                <span id="enemy-hp-num">100/100</span>
+                            </div>
+                        </div>
+
+                        <!-- Enemy Sprite Platform -->
+                        <div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
+                            <div class="absolute bottom-2 w-36 h-10 bg-emerald-900/60 border border-emerald-500/50 rounded-full blur-xs transform scale-y-50"></div>
+                            <img id="enemy-sprite" src="" alt="Enemy Sprite" class="relative z-10 w-36 h-36 sm:w-44 sm:h-44 object-contain transition-all duration-300">
+                        </div>
+                    </div>
+
+                    <!-- PLAYER PLATFORM -->
+                    <div class="flex justify-between items-end w-full relative z-10">
+                        
+                        <!-- Player Sprite Platform -->
+                        <div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
+                            <div class="absolute bottom-2 w-36 h-10 bg-emerald-900/60 border border-emerald-500/50 rounded-full blur-xs transform scale-y-50"></div>
+                            <img id="player-sprite" src="" alt="Player Back Sprite" class="relative z-10 w-36 h-36 sm:w-44 sm:h-44 object-contain transition-all duration-300">
+                        </div>
+
+                        <!-- Player Status Card -->
+                        <div class="bg-slate-950/90 border-2 border-slate-400 rounded-xl p-3 w-56 sm:w-64 shadow-xl">
+                            <div class="flex justify-between items-center text-xs text-white">
+                                <span id="player-name" class="uppercase font-bold">JUGADOR</span>
+                                <span id="player-lvl" class="text-yellow-400">Lv.50</span>
+                            </div>
+                            <div class="mt-1.5 bg-slate-800 border border-slate-600 rounded-full h-3.5 p-0.5 flex items-center">
+                                <div id="player-hp-bar" class="bg-emerald-400 h-full rounded-full transition-all duration-300 w-full"></div>
+                            </div>
+                            <div class="flex justify-between text-[9px] text-slate-300 mt-1">
+                                <span>HP</span>
+                                <span id="player-hp-num">100/100</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTROLS & MOVE SELECTION PANEL -->
+                <div id="battle-controls" class="bg-slate-950/80 backdrop-blur-sm p-4 space-y-3 font-sans flex-shrink-0 overflow-y-auto">
+                    
+                    <!-- Battle Dialogue Box -->
+                    <div class="bg-slate-900 border-2 border-yellow-500/50 rounded-xl p-3 min-h-[50px] flex items-center">
+                        <p id="battle-message" class="font-pixel text-[11px] sm:text-xs text-yellow-300 leading-relaxed">
+                            ¡El combate ha comenzado! Selecciona una habilidad.
+                        </p>
+                    </div>
+
+                    <!-- Moveset Grid -->
+                    <div id="moves-grid" class="grid grid-cols-2 gap-2"></div>
+
+                    <!-- Opponent & Player Selection Action Bar -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800 text-xs">
+                        
+                        <!-- SELECTOR TU POKÉMON -->
+                        <div class="space-y-1">
+                            <label class="text-slate-400 font-pixel text-[9px] text-blue-400 flex items-center gap-1">
+                                <i class="fa-solid fa-user"></i> TU POKÉMON:
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="player-sim-search" placeholder="Buscar tu Pokémon..." 
+                                       oninput="filterSimSuggestions('player')"
+                                       class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400">
+                                <div id="player-sim-suggestions" class="absolute left-0 right-0 bottom-full mb-1 bg-slate-900 border border-slate-700 rounded-lg max-h-36 overflow-y-auto z-40 hidden shadow-2xl"></div>
+                            </div>
+                        </div>
+
+                        <!-- SELECTOR POKÉMON RIVAL -->
+                        <div class="space-y-1">
+                            <label class="text-slate-400 font-pixel text-[9px] text-red-400 flex items-center gap-1">
+                                <i class="fa-solid fa-skull"></i> POKÉMON RIVAL:
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="rival-sim-search" placeholder="Buscar Rival..." 
+                                       oninput="filterSimSuggestions('rival')"
+                                       class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-red-400">
+                                <div id="rival-sim-suggestions" class="absolute left-0 right-0 bottom-full mb-1 bg-slate-900 border border-slate-700 rounded-lg max-h-36 overflow-y-auto z-40 hidden shadow-2xl"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Botón de Reinicio de Combate -->
+                    <div class="flex justify-end pt-1">
+                        <button onclick="resetBattle()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-yellow-400 font-pixel text-[10px] rounded border border-slate-700 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate-right"></i> REINICIAR COMBATE
+                        </button>
+                    </div>
+                </div>
+
+            </div><!-- /battle-body -->
+
+        </div>
+    </div>
+
+    <script>
+        let currentPokemon = null;
+        let isShiny = false;
+        let pokemonListCache = [];
+        let ytPlayer = null;
+        let isAudioPlaying = false;
+
+        // Base de Datos Centralizada de Raids y Eventos con enlaces de fuente directa
+        const pokemonGoScheduleDB = {
+            raids: [
+                {
+                    tier: '5★ Incursión Legendaria',
+                    name: 'Palkia',
+                    type: 'Agua / Dragón',
+                    start: '2026-10-21',
+                    end: '2026-10-27',
+                    icon: '🌌',
+                    borderColor: 'border-purple-500/40',
+                    badgeBg: 'bg-purple-900/60 text-purple-300',
+                    link: 'https://leekduck.com/events/palkia-in-5-star-raid-battles-october-2026/'
+                },
+                {
+                    tier: '5★ Incursión Legendaria',
+                    name: 'Giratina (Forma Origen)',
+                    type: 'Fantasma / Dragón',
+                    start: '2026-10-28',
+                    end: '2026-11-03',
+                    icon: '👻',
+                    borderColor: 'border-slate-500/40',
+                    badgeBg: 'bg-slate-800 text-slate-300',
+                    link: 'https://leekduck.com/events/origin-forme-giratina-in-5-star-raid-battles-october-2026/'
+                },
+                {
+                    tier: 'Mega Incursión',
+                    name: 'Mega Charizard X & Y',
+                    type: 'Fuego / Dragón · Fuego / Volador',
+                    start: '2026-10-21',
+                    end: '2026-10-27',
+                    icon: '🔥',
+                    borderColor: 'border-amber-500/40',
+                    badgeBg: 'bg-amber-900/60 text-amber-300',
+                    link: 'https://leekduck.com/events/mega-charizard-x-and-y-in-mega-raids-october-2026/'
+                },
+                {
+                    tier: 'Mega Incursión',
+                    name: 'Mega Sableye',
+                    type: 'Siniestro / Fantasma',
+                    start: '2026-10-28',
+                    end: '2026-11-03',
+                    icon: '💎',
+                    borderColor: 'border-indigo-500/40',
+                    badgeBg: 'bg-indigo-900/60 text-indigo-300',
+                    link: 'https://leekduck.com/events/mega-sableye-in-mega-raids-october-2026/'
+                },
+                {
+                    tier: '5★ Incursión Oscura',
+                    name: 'Landorus Oscuro (Forma Incarnada)',
+                    type: 'Tierra / Volador',
+                    start: '2026-10-07',
+                    end: '2026-11-03',
+                    icon: '👿',
+                    borderColor: 'border-violet-600/50',
+                    badgeBg: 'bg-violet-950 text-violet-300 border border-violet-700/50',
+                    link: 'https://leekduck.com/events/shadow-landorus-in-shadow-raids-october-2026/'
+                }
+            ],
+            events: [
+                {
+                    title: 'Shower de Meteoros Oriónidas: Debut Minior',
+                    start: '2026-10-19',
+                    end: '2026-10-26',
+                    description: 'Encuentros especiales con Minior por las noches (17:00 a 23:59 hrs local).',
+                    icon: '☄️',
+                    borderColor: 'border-purple-500/40',
+                    titleColor: 'text-purple-300',
+                    link: 'https://pokemongohub.net/post/event/orionids-meteor-shower-minior-debut/'
+                },
+                {
+                    title: 'Día de Combates Max: Uxie, Mesprit y Azelf',
+                    start: '2026-10-24',
+                    end: '2026-10-24',
+                    description: 'Debutan los tríos del lago en Combates Max. Más Partículas Max disponibles.',
+                    icon: '🧠',
+                    borderColor: 'border-sky-500/40',
+                    titleColor: 'text-sky-300',
+                    link: 'https://pokemongohub.net/post/event/dynamax-uxie-mesprit-azelf-max-battle-day/'
+                },
+                {
+                    title: 'Evento Halloween 2026: Parte 1',
+                    start: '2026-10-27',
+                    end: '2026-10-31',
+                    description: 'Aparición de Pokémon de tipo Fantasma y Siniestro. Nuevos disfraces exclusivos.',
+                    icon: '🎃',
+                    borderColor: 'border-rose-500/40',
+                    titleColor: 'text-rose-300',
+                    link: 'https://pokemongohub.net/post/event/pokemon-go-halloween-2026-part-1/'
+                },
+                {
+                    title: 'Día de Super Mega Incursiones: Chandelure',
+                    start: '2026-10-31',
+                    end: '2026-10-31',
+                    description: 'De 14:00 a 17:00 hrs. Chandelure en megaincursiones con mayor probabilidad Shiny.',
+                    icon: '🕯️',
+                    borderColor: 'border-yellow-500/40',
+                    titleColor: 'text-yellow-300',
+                    link: 'https://leekduck.com/events/mega-chandelure-super-mega-raid-day/'
+                },
+                {
+                    title: 'Pokémon GO Wild Area 2026: Global',
+                    start: '2026-11-14',
+                    end: '2026-11-15',
+                    description: 'El gran evento global con hábitats rotativos, incursiones especiales y bonus masivos.',
+                    icon: '🌍',
+                    borderColor: 'border-emerald-500/40',
+                    titleColor: 'text-emerald-300',
+                    link: 'https://pokemongolive.com/events/wildarea-2026'
+                }
+            ]
+        };
+
+        function formatDateString(dateStr) {
+            const parts = dateStr.split('-');
+            if (parts.length < 3) return dateStr;
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        }
+
+        function updateLiveGOData() {
+            const refreshIcon = document.getElementById('refresh-go-icon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const dateDisplay = document.getElementById('current-date-display');
+            if (dateDisplay) {
+                dateDisplay.textContent = `Fecha de consulta actual: ${now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+            }
+
+            // Renderizar Raids Activas Hoy
+            const raidsContainer = document.getElementById('today-raids-container');
+            if (raidsContainer) {
+                const activeRaids = pokemonGoScheduleDB.raids.filter(r => dateStr >= r.start && dateStr <= r.end);
+                const raidsToDisplay = activeRaids.length > 0 ? activeRaids : pokemonGoScheduleDB.raids.slice(0, 4);
+
+                raidsContainer.innerHTML = raidsToDisplay.map(r => {
+                    const isToday = (dateStr >= r.start && dateStr <= r.end);
+                    return `
+                        <div class="bg-slate-950/60 border ${r.borderColor} rounded-xl p-3 flex flex-col justify-between space-y-2 relative group hover:border-yellow-400/80 transition">
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-md uppercase ${r.badgeBg}">${r.tier}</span>
+                                    ${isToday ? '<span class="text-[8px] bg-emerald-950 text-emerald-400 border border-emerald-600/50 px-1.5 py-0.5 rounded font-bold animate-pulse">ACTIVO HOY</span>' : ''}
+                                </div>
+                                <div class="flex items-center gap-2 pt-1">
+                                    <span class="text-xl">${r.icon}</span>
+                                    <div>
+                                        <h4 class="font-bold text-white text-sm leading-tight">${r.name}</h4>
+                                        <p class="text-[10px] text-slate-400">${r.type}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                                <span class="text-slate-400"><i class="fa-regular fa-clock text-[9px] mr-1"></i>${formatDateString(r.start)} - ${formatDateString(r.end)}</span>
+                                <a href="${r.link}" target="_blank" rel="noopener noreferrer" class="text-yellow-400 hover:text-yellow-300 font-semibold flex items-center gap-1 group-hover:underline">
+                                    Fuente <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Renderizar Eventos Próximos
+            const eventsContainer = document.getElementById('upcoming-events-container');
+            if (eventsContainer) {
+                const upcomingEvents = pokemonGoScheduleDB.events.filter(e => e.end >= dateStr);
+                const eventsToDisplay = upcomingEvents.length > 0 ? upcomingEvents : pokemonGoScheduleDB.events;
+
+                eventsContainer.innerHTML = eventsToDisplay.map(e => `
+                    <div class="bg-slate-950/60 border ${e.borderColor} rounded-xl p-3 flex flex-col justify-between space-y-2 group hover:border-yellow-400/80 transition">
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">${e.icon}</span>
+                                <h4 class="font-bold ${e.titleColor} text-xs leading-snug">${e.title}</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-300 leading-normal">${e.description}</p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                            <span class="text-slate-400 font-mono"><i class="fa-regular fa-calendar text-[9px] mr-1"></i>${formatDateString(e.start)} - ${formatDateString(e.end)}</span>
+                            <a href="${e.link}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 group-hover:underline">
+                                Más detalles <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                            </a>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            setTimeout(() => {
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            }, 500);
+        }
+
+        // Web Audio API Synthesizer Context
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playTypeSound(type) {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                if (type === 'fire') {
+                    const bufferSize = ctx.sampleRate * 0.4;
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(400, now);
+                    filter.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+
+                    const gain = ctx.createGain();
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+                    noise.start(now);
+
+                } else if (type === 'water' || type === 'poison') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.35);
+
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+
+                } else if (type === 'grass' || type === 'bug') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.25);
+
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+
+                } else if (type === 'electric') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1200, now);
+                    osc.frequency.setValueAtTime(400, now + 0.05);
+                    osc.frequency.setValueAtTime(1500, now + 0.1);
+
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+
+                } else {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                console.log("Audio FX error:", e);
+            }
+        }
+
+        // Battle Simulator State
+        let playerState = { name: '', maxHp: 100, currentHp: 100, atk: 100, def: 100, sprite: '', moves: [], types: [] };
+        let enemyState = { name: '', maxHp: 100, currentHp: 100, atk: 100, def: 100, sprite: '', moves: [], types: [] };
+        let isPlayerTurn = true;
+        let isBattleOver = false;
+
+        const typeChart = {
+            normal: { weakTo: ['fighting'], resists: ['ghost'] },
+            fire: { weakTo: ['water', 'ground', 'rock'], resists: ['fire', 'grass', 'ice', 'bug', 'steel', 'fairy'] },
+            water: { weakTo: ['electric', 'grass'], resists: ['fire', 'water', 'ice', 'steel'] },
+            grass: { weakTo: ['fire', 'ice', 'poison', 'flying', 'bug'], resists: ['water', 'electric', 'grass', 'ground'] },
+            electric: { weakTo: ['ground'], resists: ['electric', 'flying', 'steel'] },
+            ice: { weakTo: ['fire', 'fighting', 'rock', 'steel'], resists: ['ice'] },
+            fighting: { weakTo: ['flying', 'psychic', 'fairy'], resists: ['bug', 'rock', 'dark'] },
+            poison: { weakTo: ['ground', 'psychic'], resists: ['grass', 'fighting', 'poison', 'bug', 'fairy'] },
+            ground: { weakTo: ['water', 'grass', 'ice'], resists: ['poison', 'rock', 'electric'] },
+            flying: { weakTo: ['electric', 'ice', 'rock'], resists: ['grass', 'fighting', 'bug', 'ground'] },
+            psychic: { weakTo: ['bug', 'ghost', 'dark'], resists: ['fighting', 'psychic'] },
+            bug: { weakTo: ['fire', 'flying', 'rock'], resists: ['grass', 'fighting', 'ground'] },
+            rock: { weakTo: ['water', 'grass', 'fighting', 'ground', 'steel'], resists: ['normal', 'fire', 'poison', 'flying'] },
+            ghost: { weakTo: ['ghost', 'dark'], resists: ['poison', 'bug', 'normal', 'fighting'] },
+            dragon: { weakTo: ['ice', 'dragon', 'fairy'], resists: ['fire', 'water', 'electric', 'grass'] },
+            dark: { weakTo: ['fighting', 'bug', 'fairy'], resists: ['ghost', 'dark', 'psychic'] },
+            steel: { weakTo: ['fire', 'fighting', 'ground'], resists: ['normal', 'grass', 'ice', 'flying', 'psychic', 'bug', 'rock', 'dragon', 'steel', 'fairy', 'poison'] },
+            fairy: { weakTo: ['poison', 'steel'], resists: ['fighting', 'bug', 'dark', 'dragon'] }
+        };
+
+        const typeColors = {
+            normal: 'bg-stone-500 text-white',
+            fire: 'bg-orange-600 text-white',
+            water: 'bg-blue-600 text-white',
+            grass: 'bg-emerald-600 text-white',
+            electric: 'bg-amber-400 text-slate-950',
+            ice: 'bg-sky-400 text-slate-950',
+            fighting: 'bg-red-700 text-white',
+            poison: 'bg-purple-600 text-white',
+            ground: 'bg-amber-700 text-white',
+            flying: 'bg-indigo-400 text-white',
+            psychic: 'bg-pink-600 text-white',
+            bug: 'bg-lime-600 text-white',
+            rock: 'bg-yellow-700 text-white',
+            ghost: 'bg-purple-800 text-white',
+            dragon: 'bg-indigo-700 text-white',
+            dark: 'bg-slate-800 text-white',
+            steel: 'bg-slate-500 text-white',
+            fairy: 'bg-pink-400 text-slate-950'
+        };
+
+        // YouTube Audio Integration
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('youtube-player', {
+                height: '0',
+                width: '0',
+                videoId: 'YMEblRM4pGc',
+                playerVars: { 'autoplay': 0, 'controls': 0, 'loop': 1, 'playlist': 'YMEblRM4pGc' },
+                events: { 'onReady': (e) => e.target.setVolume(30) }
+            });
+        }
+
+        function enterMode(mode) {
+            getAudioContext();
+            const overlay = document.getElementById('splash-overlay');
+            if (overlay) {
+                overlay.classList.add('opacity-0');
+                overlay.style.pointerEvents = 'none';
+                setTimeout(function() {
+                    overlay.style.display = 'none';
+                    overlay.classList.add('hidden');
+                }, 400);
+            }
+
+            if (ytPlayer && ytPlayer.playVideo) {
+                try { ytPlayer.playVideo(); } catch(e) {}
+                isAudioPlaying = true;
+                updateAudioUI();
+            }
+
+            if (mode === 'battle') {
+                setTimeout(function() { openBattleSimulator(); }, 100);
+            }
+        }
+
+        function toggleAudio() {
+            if (!ytPlayer) return;
+            if (isAudioPlaying) {
+                ytPlayer.pauseVideo();
+                isAudioPlaying = false;
+            } else {
+                ytPlayer.playVideo();
+                isAudioPlaying = true;
+            }
+            updateAudioUI();
+        }
+
+        function toggleMute() {
+            if (!ytPlayer) return;
+            if (ytPlayer.isMuted()) {
+                ytPlayer.unMute();
+            } else {
+                ytPlayer.mute();
+            }
+            updateAudioUI();
+        }
+
+        function changeVolume(val) {
+            if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(val);
+        }
+
+        function updateAudioUI() {
+            const iconPlay = document.getElementById('icon-play');
+            const iconMute = document.getElementById('icon-mute');
+            if (iconPlay) iconPlay.className = isAudioPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
+            if (iconMute && ytPlayer) {
+                iconMute.className = ytPlayer.isMuted() ? "fa-solid fa-volume-xmark text-red-400" : "fa-solid fa-volume-high text-slate-300";
+            }
+        }
+
+
+
+        // Skins/disfraces con SPRITES REALES de Pokémon GO (pokemondb). Sin emojis falsos.
+        const GO_SPRITE = 'https://img.pokemondb.net/sprites/go/normal/';
+        const costumeSkinsDB = {
+            pikachu: [
+                { name: 'Pikachu PhD', event: 'Cosplay / Showcase', available: 'Eventos especiales', img: GO_SPRITE + 'pikachu-phd.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Libre', event: 'Lucha libre / GBL', available: 'Eventos / GBL', img: GO_SPRITE + 'pikachu-libre.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Gorra Ash (Original Cap)', event: 'Aniversario / películas', available: 'Eventos recurrentes', img: GO_SPRITE + 'pikachu-cap.png', emoji: '', realSprite: true },
+                { name: 'Pikachu World Cap', event: 'World Cap', available: 'Eventos', img: GO_SPRITE + 'pikachu-world-cap.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Sombrero de Bruja', event: 'Halloween', available: 'Eventos Halloween', img: GO_SPRITE + 'pikachu-witch.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Santa', event: 'Navidad', available: 'Eventos navideños', img: GO_SPRITE + 'pikachu-santa.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Party Hat', event: 'Pokémon Day', available: 'Eventos', img: GO_SPRITE + 'pikachu-party-hat.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Halloween Mischief', event: 'Halloween', available: 'Eventos Halloween', img: GO_SPRITE + 'pikachu-halloween-mischief.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Tricks & Treats', event: 'Halloween', available: 'Eventos Halloween', img: GO_SPRITE + 'pikachu-tricks-treats.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Clone', event: 'Película / evento', available: 'Eventos limitados', img: GO_SPRITE + 'pikachu-clone.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Straw Hat', event: 'Verano', available: 'Eventos', img: GO_SPRITE + 'pikachu-straw-hat.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Flower Hat', event: 'Primavera', available: 'Eventos', img: GO_SPRITE + 'pikachu-flower-hat.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Safari Hat', event: 'Safari', available: 'Eventos', img: GO_SPRITE + 'pikachu-safari-hat.png', emoji: '', realSprite: true },
+                { name: 'Pikachu Adventure Hat', event: 'Aventura', available: 'Eventos', img: GO_SPRITE + 'pikachu-adventure-hat.png', emoji: '', realSprite: true },
+                { name: 'Pikachu New Year Hat', event: 'Año Nuevo', available: 'Eventos', img: GO_SPRITE + 'pikachu-new-year-hat.png', emoji: '', realSprite: true }
+            ],
+            mewtwo: [
+                { name: 'Mewtwo Acorazado', event: 'Película / raids especiales', available: 'Eventos limitados (raids)', img: GO_SPRITE + 'mewtwo-armored.png', emoji: '', realSprite: true }
+            ],
+            gengar: [
+                { name: 'Gengar Spooky Festival', event: 'Halloween / Festival Tenebroso', available: 'Eventos Halloween', img: GO_SPRITE + 'gengar-spooky-festival.png', emoji: '', realSprite: true },
+                { name: 'Gengar Tricks & Treats', event: 'Halloween', available: 'Eventos Halloween', img: GO_SPRITE + 'gengar-tricks-treats.png', emoji: '', realSprite: true },
+                { name: 'Gengar Red Party Hat', event: 'Celebraciones', available: 'Eventos', img: GO_SPRITE + 'gengar-red-party-hat.png', emoji: '', realSprite: true }
+            ],
+            squirtle: [
+                { name: 'Squirtle Gafas de sol', event: 'Verano / Squad', available: 'Eventos de verano', img: GO_SPRITE + 'squirtle-sunglasses.png', emoji: '', realSprite: true }
+            ]
+        };
+
+        const popularSkinsFallback = [
+            { name: 'Mewtwo Acorazado', event: 'Raids especiales', available: 'Eventos limitados', img: GO_SPRITE + 'mewtwo-armored.png', emoji: '', realSprite: true },
+            { name: 'Pikachu PhD', event: 'Cosplay', available: 'Eventos', img: GO_SPRITE + 'pikachu-phd.png', emoji: '', realSprite: true },
+            { name: 'Pikachu Libre', event: 'Lucha libre', available: 'Eventos', img: GO_SPRITE + 'pikachu-libre.png', emoji: '', realSprite: true },
+            { name: 'Pikachu Gorra Ash', event: 'Aniversario', available: 'Eventos', img: GO_SPRITE + 'pikachu-cap.png', emoji: '', realSprite: true },
+            { name: 'Gengar Spooky Festival', event: 'Halloween', available: 'Eventos', img: GO_SPRITE + 'gengar-spooky-festival.png', emoji: '', realSprite: true },
+            { name: 'Squirtle Gafas de sol', event: 'Verano', available: 'Eventos', img: GO_SPRITE + 'squirtle-sunglasses.png', emoji: '', realSprite: true }
+        ];
+
+        let lastSkinPreview = null;
+        let activeSkinName = null;
+
+        function showSkinInfo(name, event, available, imgUrl, realSprite) {
+            const popup = document.getElementById('skin-info-popup');
+            if (!popup) return;
+            document.getElementById('skin-info-title').textContent = name;
+            document.getElementById('skin-info-how').textContent = 'Evento / origen: ' + event;
+            document.getElementById('skin-info-status').textContent = 'Disponibilidad: ' + available;
+            document.getElementById('skin-info-status').className = 'text-[10px] font-semibold text-pink-400';
+            const imgEl = document.getElementById('skin-info-img');
+            if (imgEl) {
+                imgEl.src = imgUrl || '';
+                imgEl.alt = name;
+            }
+            lastSkinPreview = { name: name, img: imgUrl, event: event, realSprite: realSprite === true || realSprite === 'true' };
+            const btn = document.getElementById('skin-probar-btn');
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Cargar con esta forma';
+                btn.className = 'w-full mt-1 px-3 py-2 bg-pink-600 hover:bg-pink-500 text-white text-[11px] font-bold rounded-lg transition flex items-center justify-center gap-2';
+                btn.onclick = function() { cargarSkinForma(name, imgUrl, lastSkinPreview && lastSkinPreview.realSprite); };
+            }
+            popup.classList.remove('hidden');
+            popup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function getSkinOverlayEmoji(skinName) {
+            const n = (skinName || '').toLowerCase();
+            if (n.includes('astronaut') || n.includes('espacio')) return '🚀';
+            if (n.includes('halloween') || n.includes('bruja')) return '🎃';
+            if (n.includes('flor')) return '🌸';
+            if (n.includes('gafas') || n.includes('sol')) return '😎';
+            if (n.includes('gorra') || n.includes('ash') || n.includes('cap')) return '🧢';
+            if (n.includes('sombrero') || n.includes('copa')) return '🎩';
+            if (n.includes('bufanda')) return '🧣';
+            if (n.includes('lazo')) return '🎀';
+            if (n.includes('acorazado') || n.includes('armadura')) return '';
+            if (n.includes('disfraz')) return '🎭';
+            if (n.includes('libre') || n.includes('futbol') || n.includes('fútbol')) return '⚽';
+            return '✨';
+        }
+
+        function applySkinOverlay(skinName) {
+            const overlay = document.getElementById('skin-overlay');
+            const icon = document.getElementById('skin-overlay-icon');
+            if (!overlay || !icon) return;
+            if (!skinName) {
+                overlay.classList.add('hidden');
+                icon.textContent = '';
+                return;
+            }
+            icon.textContent = getSkinOverlayEmoji(skinName);
+            // Posicion segun tipo de accesorio
+            const n = skinName.toLowerCase();
+            if (n.includes('gafas')) {
+                icon.style.top = '38%';
+                icon.style.fontSize = '1.75rem';
+            } else if (n.includes('bufanda') || n.includes('lazo')) {
+                icon.style.top = '62%';
+                icon.style.fontSize = '1.75rem';
+            } else {
+                icon.style.top = '4%';
+                icon.style.fontSize = '2.75rem';
+            }
+            overlay.classList.remove('hidden');
+            // Animacion del icono sincronizada
+            icon.classList.remove('animate-float');
+            void icon.offsetWidth;
+            icon.classList.add('animate-float');
+        }
+
+        function cargarSkinForma(name, imgUrl, realSprite) {
+            if (!currentPokemon) return;
+            activeSkinName = name;
+            // Cualquier imagen de /go/normal/ o marcada real se trata como sprite real de GO
+            const isReal = realSprite === true || realSprite === 'true' ||
+                (imgUrl && imgUrl.indexOf('/sprites/go/') >= 0);
+
+            const mainSprite = document.getElementById('poke-sprite');
+            if (mainSprite) {
+                if (isReal && imgUrl) {
+                    mainSprite.src = imgUrl;
+                    applySkinOverlay(null); // nunca emoji encima de sprite real
+                } else if (imgUrl) {
+                    mainSprite.src = imgUrl;
+                    applySkinOverlay(null);
+                } else {
+                    const isShinyNow = document.getElementById('shiny-toggle') && document.getElementById('shiny-toggle').checked;
+                    mainSprite.src = isShinyNow
+                        ? (currentPokemon.sprites.front_shiny || currentPokemon.sprites.front_default)
+                        : currentPokemon.sprites.front_default;
+                    applySkinOverlay(null);
+                }
+                mainSprite.onerror = function() {
+                    // Si falla la skin, volver al sprite base
+                    this.onerror = null;
+                    this.src = currentPokemon.sprites.front_default;
+                };
+                mainSprite.style.animation = 'none';
+                void mainSprite.offsetWidth;
+                mainSprite.style.animation = '';
+                mainSprite.classList.add('animate-float');
+            }
+
+            const nameEl = document.getElementById('poke-name');
+            if (nameEl) {
+                nameEl.innerHTML = (currentPokemon.name || '').toUpperCase() +
+                    ' <span class="text-pink-400 text-xs font-sans font-semibold normal-case">· ' + name + '</span>';
+            }
+
+            const badge = document.getElementById('active-skin-badge');
+            if (badge) {
+                badge.textContent = '✨ ' + name;
+                badge.classList.remove('hidden');
+            }
+
+            const playerSprite = document.getElementById('player-sprite');
+            if (playerSprite) {
+                playerSprite.src = (isReal && imgUrl) ? imgUrl : currentPokemon.sprites.front_default;
+                playerSprite.classList.add('animate-float');
+            }
+
+            currentPokemon.activeSkin = { name: name, img: imgUrl, realSprite: isReal };
+
+            const btn = document.getElementById('skin-probar-btn');
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Forma cargada';
+                btn.className = 'w-full mt-1 px-3 py-2 bg-emerald-600 text-white text-[11px] font-bold rounded-lg transition flex items-center justify-center gap-2';
+            }
+
+            if (mainSprite) mainSprite.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+
+
+
+        function renderCostumeSkins() {
+            const container = document.getElementById('skins-container');
+            if (!container || !currentPokemon) return;
+            const popup = document.getElementById('skin-info-popup');
+            if (popup) popup.classList.add('hidden');
+
+            const base = (currentPokemon.speciesData && currentPokemon.speciesData.name
+                ? currentPokemon.speciesData.name
+                : currentPokemon.name).toLowerCase().split('-')[0];
+            let skins = costumeSkinsDB[base] || [];
+
+                        function cardHtml(s) {
+                var n = String(s.name).replace(/'/g, "\'");
+                var e = String(s.event).replace(/'/g, "\'");
+                var a = String(s.available).replace(/'/g, "\'");
+                var img = s.img || '';
+                var imgEsc = img.replace(/'/g, "\'");
+                var emoji = s.emoji || '';
+                var real = s.realSprite ? 'true' : 'false';
+                var badge = '';
+                if (emoji) {
+                    badge = '<div class="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-pink-600/90 border border-pink-300 flex items-center justify-center text-sm shadow">' + emoji + '</div>';
+                } else if (s.realSprite) {
+                    badge = '<div class="absolute -top-2 -right-2 px-1.5 h-5 rounded-full bg-amber-500 text-[8px] font-bold text-slate-900 flex items-center shadow">GO</div>';
+                }
+                return '<div onclick="showSkinInfo(\'' + n + '\',\'' + e + '\',\'' + a + '\',\'' + imgEsc + '\',' + real + ')" class="group relative flex flex-col items-center gap-1.5 p-3 bg-gradient-to-b from-slate-900 to-slate-950 border border-pink-700/40 hover:border-pink-400 rounded-2xl cursor-pointer transition min-w-[100px] max-w-[120px] shadow-lg hover:shadow-pink-500/20 hover:-translate-y-1">' +
+                    badge +
+                    '<div class="w-20 h-20 rounded-xl bg-slate-950/80 border border-slate-700 flex items-center justify-center overflow-hidden">' +
+                    '<img src="' + img + '" class="w-16 h-16 object-contain group-hover:scale-110 transition duration-300" alt="">' +
+                    '</div>' +
+                    '<span class="text-[10px] font-bold uppercase text-pink-200 text-center leading-tight">' + s.name + '</span>' +
+                    '<span class="text-[8px] text-slate-400 text-center leading-tight">' + s.available + '</span>' +
+                    '</div>';
+            }
+
+            if (skins.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-500 py-2">Este Pokemon no tiene skins/disfraces de evento registrados en GO.</p>' +
+                    '<p class="text-[9px] text-slate-600 mb-2">Skins populares de otros Pokemon:</p>' +
+                    popularSkinsFallback.map(cardHtml).join('');
+                return;
+            }
+            container.innerHTML = skins.map(cardHtml).join('');
+        }
+
+        const goWeatherBoosts = {
+            sunny:{label:'Soleado / Despejado',icon:'☀️',types:['fire','grass','ground']},
+            rainy:{label:'Lluvioso',icon:'🌧️',types:['water','electric','bug']},
+            partly_cloudy:{label:'Parcialmente Nublado',icon:'⛅',types:['normal','rock']},
+            cloudy:{label:'Nublado',icon:'☁️',types:['fairy','fighting','poison']},
+            windy:{label:'Ventoso',icon:'🌬️',types:['dragon','flying','psychic']},
+            snow:{label:'Nieve',icon:'❄️',types:['ice','steel']},
+            fog:{label:'Niebla',icon:'🌫️',types:['dark','ghost']}
+        };
+        function mapWmoToGoWeather(code, wind) {
+            if (wind >= 25) return 'windy';
+            if ([0,1].includes(code)) return 'sunny';
+            if (code===2) return 'partly_cloudy';
+            if (code===3) return 'cloudy';
+            if ([45,48].includes(code)) return 'fog';
+            if ([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code)) return 'rainy';
+            if ([71,73,75,77,85,86].includes(code)) return 'snow';
+            return 'partly_cloudy';
+        }
+        function renderBoostedTypes(goKey) {
+            const d = goWeatherBoosts[goKey] || goWeatherBoosts.partly_cloudy;
+            const h = d.types.map(t => `<span class="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${typeColors[t]||'bg-slate-700'} shadow">${t}</span>`).join('');
+            const a = document.getElementById('boosted-types'), b = document.getElementById('footer-boosted-types');
+            if (a) a.innerHTML = h; if (b) b.innerHTML = h;
+        }
+        function updateWeatherUI(goKey, temp, wind) {
+            const d = goWeatherBoosts[goKey] || goWeatherBoosts.partly_cloudy;
+            const t = temp != null ? `${temp}°C · Viento ${Math.round(wind||0)} km/h` : '—';
+            [['weather-icon',d.icon],['weather-desc',d.label],['weather-temp',t],['footer-weather-icon',d.icon],['footer-weather-desc',d.label],['footer-weather-temp',t]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent=v;});
+            renderBoostedTypes(goKey);
+        }
+        async function fetchWeather() {
+            ['weather-desc','footer-weather-desc'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='Obteniendo clima...';});
+            if (!navigator.geolocation) { updateWeatherUI('partly_cloudy',null,null); return; }
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                try {
+                    const {latitude,longitude}=pos.coords;
+                    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=weather_code,temperature_2m,wind_speed_10m&timezone=auto`);
+                    const data=await res.json(); const c=data.current;
+                    updateWeatherUI(mapWmoToGoWeather(c.weather_code,c.wind_speed_10m||0), Math.round(c.temperature_2m), c.wind_speed_10m||0);
+                } catch(e) { updateWeatherUI('partly_cloudy',null,null); }
+            }, () => {
+                updateWeatherUI('partly_cloudy',null,null);
+                ['weather-desc','footer-weather-desc'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='Permiso denegado';});
+            }, {enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+        }
+
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            fetchPokemonList();
+            loadPokemon('lugia');
+            fetchWeather();
+            updateLiveGOData();
+        });
+
+        async function fetchPokemonList() {
+            try {
+                const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+                const data = await res.json();
+                pokemonListCache = data.results;
+            } catch (err) {
+                console.error("Error fetching list:", err);
+            }
+        }
+
+        function filterSuggestions() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const suggestionsBox = document.getElementById('suggestions-box');
+            if (!query || pokemonListCache.length === 0) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+            const matches = pokemonListCache.filter(p => p.name.includes(query)).slice(0, 6);
+            if (matches.length === 0) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+            suggestionsBox.innerHTML = matches.map(m => `
+                <div onclick="selectSuggestion('${m.name}')" class="px-4 py-2 hover:bg-slate-800 cursor-pointer text-xs uppercase text-slate-200 border-b border-slate-800/50">
+                    ${m.name}
+                </div>
+            `).join('');
+            suggestionsBox.classList.remove('hidden');
+        }
+
+        function selectSuggestion(name) {
+            document.getElementById('search-input').value = name;
+            document.getElementById('suggestions-box').classList.add('hidden');
+            loadPokemon(name);
+        }
+
+        function handleSearchKey(e) { if (e.key === 'Enter') performSearch(); }
+        function performSearch() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (query) loadPokemon(query);
+        }
+
+        async function loadPokemon(nameOrId) {
+            try {
+                const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${nameOrId}`);
+                if (!response.ok) throw new Error("Pokémon no encontrado");
+                
+                const data = await response.json();
+                const speciesResponse = await fetch(data.species.url);
+                const speciesData = await speciesResponse.json();
+
+                currentPokemon = {
+                    id: data.id,
+                    name: data.name,
+                    types: data.types.map(t => t.type.name),
+                    stats: parseStats(data.stats),
+                    sprites: {
+                        front_default: data.sprites.other?.showdown?.front_default || data.sprites.front_default,
+                        front_shiny: data.sprites.other?.showdown?.front_shiny || data.sprites.front_shiny,
+                        back_default: data.sprites.other?.showdown?.back_default || data.sprites.back_default,
+                        back_shiny: data.sprites.other?.showdown?.back_shiny || data.sprites.back_shiny,
+                    },
+                    speciesData: speciesData
+                };
+
+                renderPokemonCard();
+                renderWeaknessesAndResistances();
+                renderEvolutionChain();
+                renderMegaEvolutions();
+                renderCostumeSkins();
+                renderRaidCounters();
+
+            } catch (error) {
+                alert("No se pudo cargar la información: " + error.message);
+            }
+        }
+
+        function parseStats(statsArr) {
+            let hp = statsArr.find(s => s.stat.name === 'hp')?.base_stat || 50;
+            let atk = statsArr.find(s => s.stat.name === 'attack')?.base_stat || 50;
+            let def = statsArr.find(s => s.stat.name === 'defense')?.base_stat || 50;
+            let spatk = statsArr.find(s => s.stat.name === 'special-attack')?.base_stat || 50;
+            let spdef = statsArr.find(s => s.stat.name === 'special-defense')?.base_stat || 50;
+            let speed = statsArr.find(s => s.stat.name === 'speed')?.base_stat || 50;
+
+            let goAtk = Math.round(2 * (0.875 * Math.max(atk, spatk) + 0.125 * Math.min(atk, spatk)) * (1 + (speed - 75) / 500));
+            let goDef = Math.round(2 * (0.625 * Math.max(def, spdef) + 0.375 * Math.min(def, spdef)) * (1 + (speed - 75) / 500));
+            let goSta = Math.floor(hp * 1.75 + 50);
+            const cpm50 = 0.8403000236, cpm35 = 0.7615638375;
+            let maxCP = Math.floor(((goAtk + 15) * Math.sqrt(goDef + 15) * Math.sqrt(goSta + 15) * Math.pow(cpm50, 2)) / 10);
+            let wildPerfectCP = Math.floor(((goAtk + 15) * Math.sqrt(goDef + 15) * Math.sqrt(goSta + 15) * Math.pow(cpm35, 2)) / 10);
+            return { atk: goAtk, def: goDef, sta: goSta, maxCP: maxCP, wildPerfectCP: wildPerfectCP };
+        }
+
+        function renderPokemonCard() {
+            if (!currentPokemon) return;
+            document.getElementById('poke-id').innerText = `#${String(currentPokemon.id).padStart(3, '0')}`;
+            document.getElementById('poke-name').innerText = currentPokemon.name;
+            const mainSp = document.getElementById('poke-sprite');
+            if (!currentPokemon.activeSkin) { applySkinOverlay(null); const _sb = document.getElementById('active-skin-badge'); if (_sb) _sb.classList.add('hidden'); }
+            if (currentPokemon.activeSkin && currentPokemon.activeSkin.realSprite && currentPokemon.activeSkin.img) {
+                mainSp.src = currentPokemon.activeSkin.img;
+                applySkinOverlay(null);
+            } else if (currentPokemon.activeSkin && currentPokemon.activeSkin.name) {
+                mainSp.src = isShiny ? (currentPokemon.sprites.front_shiny || currentPokemon.sprites.front_default) : currentPokemon.sprites.front_default;
+                applySkinOverlay(currentPokemon.activeSkin.name);
+            } else {
+                mainSp.src = isShiny ? (currentPokemon.sprites.front_shiny || currentPokemon.sprites.front_default) : currentPokemon.sprites.front_default;
+            }
+            // Siempre mantener animacion flotante
+            mainSp.classList.add('animate-float');
+            if (currentPokemon.activeSkin && currentPokemon.activeSkin.name) {
+                const nameEl = document.getElementById('poke-name');
+                // se setea abajo el nombre base; re-aplicar etiqueta despues
+                setTimeout(function() {
+                    const ne = document.getElementById('poke-name');
+                    if (ne && currentPokemon.activeSkin) {
+                        ne.innerHTML = currentPokemon.name.toUpperCase() + ' <span class="text-pink-400 text-xs font-sans font-semibold normal-case">· ' + currentPokemon.activeSkin.name + '</span>';
+                    }
+                }, 0);
+            }
+
+            document.getElementById('poke-types').innerHTML = currentPokemon.types.map(t => `
+                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase ${typeColors[t] || 'bg-slate-700'} shadow">${t}</span>
+            `).join('');
+
+            document.getElementById('stat-atk-val').innerText = currentPokemon.stats.atk;
+            document.getElementById('stat-def-val').innerText = currentPokemon.stats.def;
+            document.getElementById('stat-sta-val').innerText = currentPokemon.stats.sta;
+            document.getElementById('stat-max-cp').innerText = currentPokemon.stats.maxCP;
+            const _w = document.getElementById('stat-wild-perfect-cp');
+            if (_w) _w.innerText = currentPokemon.stats.wildPerfectCP || 0;
+
+            document.getElementById('stat-atk-bar').style.width = `${Math.min(100, (currentPokemon.stats.atk / 350) * 100)}%`;
+            document.getElementById('stat-def-bar').style.width = `${Math.min(100, (currentPokemon.stats.def / 350) * 100)}%`;
+            document.getElementById('stat-sta-bar').style.width = `${Math.min(100, (currentPokemon.stats.sta / 400) * 100)}%`;
+        }
+
+        function toggleShinyMode() {
+            isShiny = document.getElementById('shiny-toggle').checked;
+            renderPokemonCard();
+        }
+
+        function renderWeaknessesAndResistances() {
+            if (!currentPokemon) return;
+            let weaknesses = new Set();
+            let resistances = new Set();
+
+            currentPokemon.types.forEach(type => {
+                const data = typeChart[type];
+                if (data) {
+                    data.weakTo.forEach(w => weaknesses.add(w));
+                    data.resists.forEach(r => resistances.add(r));
+                }
+            });
+
+            let finalWeaknesses = [...weaknesses].filter(w => !resistances.has(w));
+            let finalResistances = [...resistances].filter(r => !weaknesses.has(r));
+
+            document.getElementById('weakness-list').innerHTML = finalWeaknesses.map(w => `
+                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${typeColors[w] || 'bg-slate-700'} shadow">${w} (x1.6)</span>
+            `).join('') || '<span class="text-xs text-slate-500">Ninguna</span>';
+
+            document.getElementById('resistance-list').innerHTML = finalResistances.map(r => `
+                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${typeColors[r] || 'bg-slate-700'} shadow">${r} (x0.625)</span>
+            `).join('') || '<span class="text-xs text-slate-500">Ninguna</span>';
+        }
+
+        async function renderEvolutionChain() {
+            const container = document.getElementById('evo-chain-container');
+            try {
+                const chainRes = await fetch(currentPokemon.speciesData.evolution_chain.url);
+                const chainData = await chainRes.json();
+                let evoList = [];
+                let curr = chainData.chain;
+
+                while (curr) {
+                    evoList.push(curr.species.name);
+                    curr = curr.evolves_to[0];
+                }
+
+                container.innerHTML = evoList.map(name => `
+                    <div onclick="loadPokemon('${name}')" class="flex flex-col items-center p-2 bg-slate-950/60 rounded-xl border border-slate-800 hover:border-yellow-400 cursor-pointer transition min-w-[75px]">
+                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${getPokemonIdFromUrl(name)}.png" class="w-12 h-12 object-contain">
+                        <span class="text-[10px] font-bold uppercase text-slate-300 mt-1">${name}</span>
+                    </div>
+                `).join('<i class="fa-solid fa-chevron-right text-slate-600 text-xs"></i>');
+            } catch (e) {
+                container.innerHTML = '<span class="text-xs text-slate-500">Sin evoluciones.</span>';
+            }
+        }
+
+        function getPokemonIdFromUrl(name) {
+            const found = pokemonListCache.find(p => p.name === name);
+            if (found) {
+                const parts = found.url.split('/').filter(Boolean);
+                return parts[parts.length - 1];
+            }
+            const formIds = {
+                'kyurem-black':10022,'kyurem-white':10023,'necrozma-dusk':10155,'necrozma-dawn':10156,'necrozma-ultra':10157,
+                'giratina-origin':10007,'shaymin-sky':10006,'hoopa-unbound':10086,'deoxys-attack':10001,'deoxys-defense':10002,'deoxys-speed':10003,
+                'tornadus-therian':10019,'thundurus-therian':10020,'landorus-therian':10021,'enamorus-therian':10221,
+                'rotom-heat':10008,'rotom-wash':10009,'rotom-frost':10010,'rotom-fan':10011,'rotom-mow':10012,
+                'zacian-crowned':10188,'zamazenta-crowned':10189,'calyrex-ice':10193,'calyrex-shadow':10194,
+                'dialga-origin':10245,'palkia-origin':10246,'urshifu-rapid-strike':10191
+            };
+            if (formIds[name]) return formIds[name];
+            const bf = pokemonListCache.find(p => p.name === name.split('-')[0]);
+            if (bf) return bf.url.split('/').filter(Boolean).pop();
+            return 1;
+        }
+
+        const specialFormsDB = {
+            'kyurem-black': {
+                display: 'Kyurem Negro',
+                how: 'FUSIÓN en Pokémon GO:\n• Pokémon: Kyurem + Zekrom\n• Energía: 1.000 Volt Fusion Energy\n• Caramelos: 30 Kyurem + 30 Zekrom\n\nEnergía: se obtiene derrotando Kyurem Negro en raids (solo en eventos de fusión / GO Tour). NO se farmea fuera de eventos.',
+                available: true,
+                status: '✓ Fusión disponible · Energía SOLO en eventos/raids de Kyurem Negro'
+            },
+            'kyurem-white': {
+                display: 'Kyurem Blanco',
+                how: 'FUSIÓN en Pokémon GO:\n• Pokémon: Kyurem + Reshiram\n• Energía: 1.000 Blaze Fusion Energy\n• Caramelos: 30 Kyurem + 30 Reshiram\n\nEnergía: derrotar Kyurem Blanco en raids de eventos de fusión. NO permanente.',
+                available: true,
+                status: '✓ Fusión disponible · Energía SOLO en eventos/raids de Kyurem Blanco'
+            },
+            'necrozma-dusk': {
+                display: 'Necrozma Melena Crepuscular',
+                how: 'FUSIÓN en Pokémon GO:\n• Pokémon: Necrozma + Solgaleo\n• Energía: 1.000 Solar Fusion Energy\n• Caramelos: 30 Necrozma + 30 Cosmog\n\nEnergía: raids de Melena Crepuscular (eventos). Separar es gratis; refundir cuesta otra vez.',
+                available: true,
+                status: '✓ Fusión disponible · Energía SOLO en eventos/raids'
+            },
+            'necrozma-dawn': {
+                display: 'Necrozma Alas del Alba',
+                how: 'FUSIÓN en Pokémon GO:\n• Pokémon: Necrozma + Lunala\n• Energía: 1.000 Lunar Fusion Energy\n• Caramelos: 30 Necrozma + 30 Cosmog\n\nEnergía: raids de Alas del Alba (eventos). Separar es gratis.',
+                available: true,
+                status: '✓ Fusión disponible · Energía SOLO en eventos/raids'
+            },
+            'necrozma-ultra': {
+                display: 'Ultra Necrozma',
+                how: 'TRANSFORMACIÓN:\n• Necesitas Necrozma ya fusionado (Melena o Alas)\n• Activar Ultra Burst / Ultranecrozium Z\n• No consume de forma permanente a Solgaleo/Lunala',
+                available: true,
+                status: '✓ Si ya tienes fusión de Necrozma'
+            },
+            'giratina-origin': {
+                display: 'Giratina Origen',
+                how: 'CAMBIO DE FORMA:\n• Objeto: Griseous Orb / Griseous Core\n• Menú de Giratina en GO\n• Objeto: se entregó en eventos de Giratina. Si no lo tienes, espera evento.',
+                available: true,
+                status: '✓ Cambio OK · Objeto: solo si lo tienes o en eventos'
+            },
+            'shaymin-sky': {
+                display: 'Shaymin Cielo',
+                how: 'CAMBIO DE FORMA:\n• Objeto: Flor Gracídea (de día)\n• Menú de Shaymin en GO\n• Flor: se entrega en eventos de Shaymin',
+                available: true,
+                status: '✓ Cambio OK · Flor: en eventos de Shaymin'
+            },
+            'hoopa-unbound': {
+                display: 'Hoopa Desatado',
+                how: 'CAMBIO DE FORMA:\n• Objeto: Botella de la Prisión (Prison Bottle)\n• Menú de Hoopa en GO\n• Botella: eventos / investigación de Hoopa',
+                available: true,
+                status: '✓ Cambio OK · Botella: en eventos de Hoopa'
+            },
+            'deoxys-attack': { display: 'Deoxys Ataque', how: 'Cambio libre en el menú de Deoxys. Sin objeto ni coste.', available: true, status: '✓ Sin coste ni objeto' },
+            'deoxys-defense': { display: 'Deoxys Defensa', how: 'Cambio libre en el menú de Deoxys. Sin objeto ni coste.', available: true, status: '✓ Sin coste ni objeto' },
+            'deoxys-speed': { display: 'Deoxys Velocidad', how: 'Cambio libre en el menú de Deoxys. Sin objeto ni coste.', available: true, status: '✓ Sin coste ni objeto' },
+            'tornadus-therian': { display: 'Tornadus Tótem', how: 'Objeto: Espejo Revelador (Reveal Glass).\nMenú del Pokémon en GO.\nEspejo: eventos de Fuerzas de la Naturaleza.', available: true, status: '✓ Cambio OK · Espejo: en eventos' },
+            'thundurus-therian': { display: 'Thundurus Tótem', how: 'Objeto: Espejo Revelador.\nMenú del Pokémon en GO.', available: true, status: '✓ Cambio OK · Espejo: en eventos' },
+            'landorus-therian': { display: 'Landorus Tótem', how: 'Objeto: Espejo Revelador.\nMenú del Pokémon en GO.', available: true, status: '✓ Cambio OK · Espejo: en eventos' },
+            'enamorus-therian': { display: 'Enamorus Tótem', how: 'Objeto: Espejo Revelador.\nMenú del Pokémon en GO.', available: true, status: '✓ Cambio OK · Espejo: en eventos' },
+            'rotom-heat': { display: 'Rotom Calor', how: 'Cambio desde el menú de Rotom. Sin objeto ni coste.', available: true, status: '✓ Sin coste' },
+            'rotom-wash': { display: 'Rotom Lavado', how: 'Cambio desde el menú de Rotom. Sin objeto ni coste.', available: true, status: '✓ Sin coste' },
+            'rotom-frost': { display: 'Rotom Frío', how: 'Cambio desde el menú de Rotom. Sin objeto ni coste.', available: true, status: '✓ Sin coste' },
+            'rotom-fan': { display: 'Rotom Ventilador', how: 'Cambio desde el menú de Rotom. Sin objeto ni coste.', available: true, status: '✓ Sin coste' },
+            'rotom-mow': { display: 'Rotom Corte', how: 'Cambio desde el menú de Rotom. Sin objeto ni coste.', available: true, status: '✓ Sin coste' },
+            'zacian-crowned': { display: 'Zacian Coronado', how: 'Objeto: Espada Oxídada (Rusted Sword).\nMenú de Zacian en GO.\nEspada: eventos de Zacian.', available: true, status: '✓ · Espada en eventos de Zacian' },
+            'zamazenta-crowned': { display: 'Zamazenta Coronado', how: 'Objeto: Escudo Oxídado (Rusted Shield).\nMenú de Zamazenta.\nEscudo: eventos de Zamazenta.', available: true, status: '✓ · Escudo en eventos' },
+            'calyrex-ice': { display: 'Calyrex Jinete Glacial', how: 'Fusión: Calyrex + Glastrier + Riendas de la Unión.\nMenú de fusión de Calyrex (eventos).', available: true, status: '✓ En eventos de Calyrex' },
+            'calyrex-shadow': { display: 'Calyrex Jinete Espectral', how: 'Fusión: Calyrex + Spectrier + Riendas de la Unión.\nMenú de fusión de Calyrex (eventos).', available: true, status: '✓ En eventos de Calyrex' },
+            'dialga-origin': { display: 'Dialga Origen', how: 'Objeto: Cristal Adamantino.\nMenú de Dialga en GO.\nCristal: eventos de Dialga Origen.', available: true, status: '✓ · Cristal en eventos' },
+            'palkia-origin': { display: 'Palkia Origen', how: 'Objeto: Orbe Lustroso.\nMenú de Palkia en GO.\nOrbe: eventos de Palkia Origen.', available: true, status: '✓ · Orbe en eventos' },
+            'urshifu-rapid-strike': { display: 'Urshifu Estilo Fluido', how: 'Al evolucionar Kubfu eliges Estilo Acometida o Fluido.\nNo se puede cambiar después.', available: true, status: '✓ Al evolucionar Kubfu' }
+        };
+
+        const relatedSpecialForms = {
+            kyurem:['kyurem-black','kyurem-white'], necrozma:['necrozma-dusk','necrozma-dawn','necrozma-ultra'],
+            giratina:['giratina-origin'], shaymin:['shaymin-sky'], hoopa:['hoopa-unbound'],
+            deoxys:['deoxys-attack','deoxys-defense','deoxys-speed'],
+            tornadus:['tornadus-therian'], thundurus:['thundurus-therian'], landorus:['landorus-therian'], enamorus:['enamorus-therian'],
+            rotom:['rotom-heat','rotom-wash','rotom-frost','rotom-fan','rotom-mow'],
+            zacian:['zacian-crowned'], zamazenta:['zamazenta-crowned'], calyrex:['calyrex-ice','calyrex-shadow'],
+            dialga:['dialga-origin'], palkia:['palkia-origin'], solgaleo:['necrozma-dusk'], lunala:['necrozma-dawn']
+        };
+
+        function closeFormInfo() {
+            const p = document.getElementById('form-info-popup');
+            if (p) p.classList.add('hidden');
+        }
+
+        function showFormInfo(formKey) {
+            const info = specialFormsDB[formKey];
+            const popup = document.getElementById('form-info-popup');
+            if (!popup) return;
+            const titleEl = document.getElementById('form-info-title');
+            const howEl = document.getElementById('form-info-how');
+            const statusEl = document.getElementById('form-info-status');
+            if (!info) {
+                titleEl.textContent = formKey.replace(/-/g, ' ');
+                howEl.textContent = 'Forma especial o Megaevolución. Consulta el menú del Pokémon o eventos en Pokémon GO.';
+                statusEl.textContent = 'Estado: verificar en la app';
+                statusEl.className = 'text-[10px] font-semibold text-slate-400';
+            } else {
+                titleEl.textContent = info.display;
+                howEl.textContent = info.how;
+                statusEl.textContent = info.status;
+                statusEl.className = 'text-[10px] font-semibold ' + (info.available ? 'text-emerald-400' : 'text-amber-400');
+            }
+            const btn = document.getElementById('form-info-load-btn');
+            if (btn) btn.onclick = function() { loadPokemon(formKey); };
+            popup.classList.remove('hidden');
+            popup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function renderMegaEvolutions() {
+            const container = document.getElementById('megas-container');
+            const speciesName = (currentPokemon.speciesData?.name || currentPokemon.name).toLowerCase();
+            const baseName = speciesName.split('-')[0];
+            let varietyList = (currentPokemon.speciesData?.varieties || []).filter(v => {
+                const n = v.pokemon.name.toLowerCase();
+                return n.includes('mega') || n.includes('gmax') || (n.includes('-') && n !== speciesName);
+            });
+            const extra = relatedSpecialForms[speciesName] || relatedSpecialForms[baseName] || [];
+            const existing = new Set(varietyList.map(v => v.pokemon.name.toLowerCase()));
+            extra.forEach(key => {
+                if (!existing.has(key)) {
+                    varietyList.push({ pokemon: { name: key } });
+                    existing.add(key);
+                }
+            });
+            if (varietyList.length === 0) {
+                container.innerHTML = '<span class="text-xs text-slate-500">No tiene Megaevolución o Forma Especial registrada.</span>';
+                return;
+            }
+            container.innerHTML = varietyList.map(v => {
+                const name = v.pokemon.name;
+                const key = name.toLowerCase();
+                const db = specialFormsDB[key];
+                const label = db ? db.display : name.replace(/-/g, ' ');
+                const border = db ? (db.available ? 'border-emerald-600/50 hover:border-emerald-400' : 'border-amber-600/50 hover:border-amber-400') : 'border-slate-800 hover:border-yellow-400';
+                return `<div class="flex flex-col items-center gap-1 p-2 bg-slate-950/60 border ${border} rounded-xl cursor-pointer transition min-w-[72px]"
+                    onclick="showFormInfo('${key}')" title="Clic para ver cómo conseguirla">
+                    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${getPokemonIdFromUrl(name)}.png" class="w-10 h-10 object-contain" onerror="this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/249.png'">
+                    <span class="text-[9px] font-bold uppercase text-yellow-400 text-center leading-tight">${label}</span>
+                    ${db ? `<span class="text-[8px] ${db.available ? 'text-emerald-400' : 'text-amber-400'}">${db.available ? '✓ GO' : '? GO'}</span>` : (key.includes('mega')||key.includes('gmax') ? '<span class="text-[8px] text-yellow-500">MEGA</span>' : '')}
+                </div>`;
+            }).join('');
+        }
+
+        // Top contadores meta por tipo ofensivo (actualizado 2025-2026)
+        const bestCountersByType = {
+            fire: [
+                { name: 'Reshiram', fast: 'Colmillo Ígneo', charge: 'Llama Fusión', type: 'fire' },
+                { name: 'Mega Charizard Y', fast: 'Giro Fuego', charge: 'Anillo Ígneo', type: 'fire' },
+                { name: 'Shadow Moltres', fast: 'Giro Fuego', charge: 'Pájaro Osado', type: 'fire' },
+                { name: 'Chandelure', fast: 'Giro Fuego', charge: 'Sofoco', type: 'fire' },
+                { name: 'Blaziken', fast: 'Contraataque', charge: 'Patada Ígnea', type: 'fire' }
+            ],
+            water: [
+                { name: 'Kyogre', fast: 'Cascada', charge: 'Pulso Origen', type: 'water' },
+                { name: 'Primal Kyogre', fast: 'Cascada', charge: 'Pulso Origen', type: 'water' },
+                { name: 'Shadow Kyogre', fast: 'Cascada', charge: 'Hidrocañón', type: 'water' },
+                { name: 'Greninja', fast: 'Cascada', charge: 'Hidrocañón', type: 'water' },
+                { name: 'Kingler', fast: 'Burbuja', charge: 'Hidrocañón', type: 'water' }
+            ],
+            electric: [
+                { name: 'Zekrom', fast: 'Rayo Carga', charge: 'Rayo Fusión', type: 'electric' },
+                { name: 'Shadow Raikou', fast: 'Voltio Cruel', charge: 'Trueno', type: 'electric' },
+                { name: 'Xurkitree', fast: 'Chispa', charge: 'Descarga', type: 'electric' },
+                { name: 'Electivire', fast: 'Rayo Carga', charge: 'Voltio Cruel', type: 'electric' },
+                { name: 'Magnezone', fast: 'Chispa', charge: 'Rayo', type: 'electric' }
+            ],
+            grass: [
+                { name: 'Kartana', fast: 'Hoja Afilada', charge: 'Filo Hoja', type: 'grass' },
+                { name: 'Shadow Venusaur', fast: 'Látigo Cepa', charge: 'Rayo Solar', type: 'grass' },
+                { name: 'Roserade', fast: 'Hoja Afilada', charge: 'Tormenta Floral', type: 'grass' },
+                { name: 'Zarude', fast: 'Látigo Cepa', charge: 'Energibola', type: 'grass' },
+                { name: 'Sceptile', fast: 'Hoja Afilada', charge: 'Hoja Aguda', type: 'grass' }
+            ],
+            ice: [
+                { name: 'Mamoswine', fast: 'Nieve Polvo', charge: 'Avalancha', type: 'ice' },
+                { name: 'Shadow Mamoswine', fast: 'Nieve Polvo', charge: 'Avalancha', type: 'ice' },
+                { name: 'Galarian Darmanitan', fast: 'Colmillo Hielo', charge: 'Avalancha', type: 'ice' },
+                { name: 'Weavile', fast: 'Canto Helado', charge: 'Alud', type: 'ice' },
+                { name: 'Glaceon', fast: 'Canto Helado', charge: 'Avalancha', type: 'ice' }
+            ],
+            fighting: [
+                { name: 'Lucario', fast: 'Contraataque', charge: 'Esfera Aural', type: 'fighting' },
+                { name: 'Mega Lucario', fast: 'Contraataque', charge: 'Esfera Aural', type: 'fighting' },
+                { name: 'Conkeldurr', fast: 'Contraataque', charge: 'Puño Dinámico', type: 'fighting' },
+                { name: 'Shadow Machamp', fast: 'Contraataque', charge: 'Puño Dinámico', type: 'fighting' },
+                { name: 'Terrakion', fast: 'Doble Patada', charge: 'Roca Afilada', type: 'fighting' }
+            ],
+            poison: [
+                { name: 'Nihilego', fast: 'Puya Nociva', charge: 'Bomba Lodo', type: 'poison' },
+                { name: 'Roserade', fast: 'Puya Nociva', charge: 'Bomba Lodo', type: 'poison' },
+                { name: 'Shadow Victreebel', fast: 'Ácido', charge: 'Bomba Lodo', type: 'poison' },
+                { name: 'Gengar', fast: 'Lamer', charge: 'Bomba Lodo', type: 'poison' },
+                { name: 'Toxicroak', fast: 'Puya Nociva', charge: 'Bomba Lodo', type: 'poison' }
+            ],
+            ground: [
+                { name: 'Groudon', fast: 'Disparo Lodo', charge: 'Filo del Abismo', type: 'ground' },
+                { name: 'Primal Groudon', fast: 'Disparo Lodo', charge: 'Filo del Abismo', type: 'ground' },
+                { name: 'Garchomp', fast: 'Disparo Lodo', charge: 'Terremoto', type: 'ground' },
+                { name: 'Rhyperior', fast: 'Disparo Lodo', charge: 'Terremoto', type: 'ground' },
+                { name: 'Excadrill', fast: 'Disparo Lodo', charge: 'Perforador', type: 'ground' }
+            ],
+            flying: [
+                { name: 'Rayquaza', fast: 'Cola Dragón', charge: 'Ascenso Draco', type: 'flying' },
+                { name: 'Mega Rayquaza', fast: 'Cola Dragón', charge: 'Ascenso Draco', type: 'flying' },
+                { name: 'Staraptor', fast: 'Golpe Aéreo', charge: 'Pájaro Osado', type: 'flying' },
+                { name: 'Honchkrow', fast: 'Golpe Aéreo', charge: 'Pájaro Osado', type: 'flying' },
+                { name: 'Tornadus', fast: 'Tornado', charge: 'Huracán', type: 'flying' }
+            ],
+            psychic: [
+                { name: 'Mewtwo', fast: 'Psicocorte', charge: 'Onda Mental', type: 'psychic' },
+                { name: 'Shadow Mewtwo', fast: 'Psicocorte', charge: 'Onda Mental', type: 'psychic' },
+                { name: 'Mega Alakazam', fast: 'Confusión', charge: 'Psíquico', type: 'psychic' },
+                { name: 'Lunala', fast: 'Confusión', charge: 'Psíquico', type: 'psychic' },
+                { name: 'Espeon', fast: 'Confusión', charge: 'Psíquico', type: 'psychic' }
+            ],
+            bug: [
+                { name: 'Pheromosa', fast: 'Corte Furia', charge: 'Tijera X', type: 'bug' },
+                { name: 'Genesect', fast: 'Corte Furia', charge: 'Tijera X', type: 'bug' },
+                { name: 'Scizor', fast: 'Corte Furia', charge: 'Tijera X', type: 'bug' },
+                { name: 'Pinsir', fast: 'Corte Furia', charge: 'Tijera X', type: 'bug' },
+                { name: 'Yanmega', fast: 'Picadura', charge: 'Tijera X', type: 'bug' }
+            ],
+            rock: [
+                { name: 'Rampardos', fast: 'Romperrocas', charge: 'Avalancha', type: 'rock' },
+                { name: 'Shadow Tyranitar', fast: 'Romperrocas', charge: 'Roca Afilada', type: 'rock' },
+                { name: 'Rhyperior', fast: 'Romperrocas', charge: 'Roca Afilada', type: 'rock' },
+                { name: 'Terrakion', fast: 'Romperrocas', charge: 'Roca Afilada', type: 'rock' },
+                { name: 'Gigalith', fast: 'Romperrocas', charge: 'Avalancha', type: 'rock' }
+            ],
+            ghost: [
+                { name: 'Gengar', fast: 'Lamer', charge: 'Bola Sombra', type: 'ghost' },
+                { name: 'Mega Gengar', fast: 'Lamer', charge: 'Bola Sombra', type: 'ghost' },
+                { name: 'Chandelure', fast: 'Infortunio', charge: 'Bola Sombra', type: 'ghost' },
+                { name: 'Dawn Wings Necrozma', fast: 'Psicocorte', charge: 'Rayo Umbrio', type: 'ghost' },
+                { name: 'Giratina', fast: 'Garra Umbria', charge: 'Bola Sombra', type: 'ghost' }
+            ],
+            dragon: [
+                { name: 'Rayquaza', fast: 'Cola Dragón', charge: 'Enfado', type: 'dragon' },
+                { name: 'Mega Rayquaza', fast: 'Cola Dragón', charge: 'Enfado', type: 'dragon' },
+                { name: 'Palkia', fast: 'Cola Dragón', charge: 'Corte Espacial', type: 'dragon' },
+                { name: 'Dialga', fast: 'Aliento Dragón', charge: 'Rugido Temporal', type: 'dragon' },
+                { name: 'Salamence', fast: 'Cola Dragón', charge: 'Enfado', type: 'dragon' }
+            ],
+            dark: [
+                { name: 'Darkrai', fast: 'Snarl', charge: 'Bola Sombra', type: 'dark' },
+                { name: 'Tyranitar', fast: 'Mordisco', charge: 'Triturar', type: 'dark' },
+                { name: 'Weavile', fast: 'Alarido', charge: 'Triturar', type: 'dark' },
+                { name: 'Hydreigon', fast: 'Mordisco', charge: 'Pulso Umbrio', type: 'dark' },
+                { name: 'Yveltal', fast: 'Alarido', charge: 'Pulso Umbrio', type: 'dark' }
+            ],
+            steel: [
+                { name: 'Metagross', fast: 'Puño Bala', charge: 'Puño Meteoro', type: 'steel' },
+                { name: 'Zacian', fast: 'Garra Metal', charge: 'Filo Behemoth', type: 'steel' },
+                { name: 'Dialga', fast: 'Garra Metal', charge: 'Puño Meteoro', type: 'steel' },
+                { name: 'Genesect', fast: 'Garra Metal', charge: 'Cabezazo Zen', type: 'steel' },
+                { name: 'Melmetal', fast: 'Puño Bala', charge: 'Puño Meteoro', type: 'steel' }
+            ],
+            fairy: [
+                { name: 'Xerneas', fast: 'Encanto', charge: 'Fuerza Lunar', type: 'fairy' },
+                { name: 'Togekiss', fast: 'Encanto', charge: 'Brillo Mágico', type: 'fairy' },
+                { name: 'Gardevoir', fast: 'Encanto', charge: 'Brillo Mágico', type: 'fairy' },
+                { name: 'Mega Gardevoir', fast: 'Encanto', charge: 'Brillo Mágico', type: 'fairy' },
+                { name: 'Granbull', fast: 'Encanto', charge: 'Brillo Mágico', type: 'fairy' }
+            ],
+            normal: [
+                { name: 'Regigigas', fast: 'Poder Oculto', charge: 'Giga Impacto', type: 'normal' },
+                { name: 'Porygon-Z', fast: 'Bloqueo', charge: 'Triataque', type: 'normal' },
+                { name: 'Slaking', fast: 'Bostezo', charge: 'Hiperrayo', type: 'normal' },
+                { name: 'Snorlax', fast: 'Lamer', charge: 'Hiperrayo', type: 'normal' },
+                { name: 'Staraptor', fast: 'Ataque Rápido', charge: 'Pájaro Osado', type: 'normal' }
+            ]
+        };
+
+        function renderRaidCounters() {
+            if (!currentPokemon) return;
+
+            let weaknesses = new Set();
+            let resistances = new Set();
+            currentPokemon.types.forEach(type => {
+                const data = typeChart[type];
+                if (data) {
+                    data.weakTo.forEach(w => weaknesses.add(w));
+                    data.resists.forEach(r => resistances.add(r));
+                }
+            });
+
+            let finalWeaknesses = [...weaknesses].filter(w => !resistances.has(w));
+            if (finalWeaknesses.length === 0) finalWeaknesses = [...weaknesses];
+            if (finalWeaknesses.length === 0) finalWeaknesses = ['fighting', 'ground', 'dragon'];
+
+            const priorityOrder = ['ice','fairy','dragon','fighting','ground','fire','water','electric','rock','ghost','dark','steel','psychic','grass','bug','poison','flying','normal'];
+            finalWeaknesses.sort((a, b) => {
+                const ia = priorityOrder.indexOf(a);
+                const ib = priorityOrder.indexOf(b);
+                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+            });
+
+            const selected = [];
+            const usedNames = new Set();
+            const effLabels = ['100%', '97%', '94%', '91%', '88%'];
+
+            for (const weakType of finalWeaknesses) {
+                const list = bestCountersByType[weakType] || [];
+                for (const counter of list) {
+                    if (!usedNames.has(counter.name) && selected.length < 5) {
+                        selected.push({
+                            name: counter.name,
+                            fast: counter.fast,
+                            charge: counter.charge,
+                            type: counter.type,
+                            eff: effLabels[selected.length]
+                        });
+                        usedNames.add(counter.name);
+                    }
+                    if (selected.length >= 5) break;
+                }
+                if (selected.length >= 5) break;
+            }
+
+            if (selected.length < 5) {
+                const generalists = [
+                    { name: 'Mewtwo', fast: 'Psicocorte', charge: 'Onda Mental', type: 'psychic' },
+                    { name: 'Rayquaza', fast: 'Cola Dragón', charge: 'Enfado', type: 'dragon' },
+                    { name: 'Lucario', fast: 'Contraataque', charge: 'Esfera Aural', type: 'fighting' },
+                    { name: 'Gengar', fast: 'Lamer', charge: 'Bola Sombra', type: 'ghost' },
+                    { name: 'Tyranitar', fast: 'Mordisco', charge: 'Triturar', type: 'dark' }
+                ];
+                for (const g of generalists) {
+                    if (!usedNames.has(g.name) && selected.length < 5) {
+                        selected.push({
+                            name: g.name,
+                            fast: g.fast,
+                            charge: g.charge,
+                            type: g.type,
+                            eff: effLabels[selected.length]
+                        });
+                        usedNames.add(g.name);
+                    }
+                }
+            }
+
+            document.getElementById('counters-table-body').innerHTML = selected.map(c => `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-2.5 px-3 font-bold text-white uppercase flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full ${typeColors[c.type] || 'bg-blue-500'}"></span>
+                        ${c.name}
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-300">${c.fast}</td>
+                    <td class="py-2.5 px-3 text-slate-300">${c.charge}</td>
+                    <td class="py-2.5 px-3 text-right font-pixel text-yellow-400">${c.eff}</td>
+                </tr>
+            `).join('');
+        }
+
+        function openBattleSimulator() {
+            if (document.body.classList.contains('mode-mobile')) { document.body.classList.add('battle-landscape'); screenOrientationLock(); }
+            if (!currentPokemon) return;
+            getAudioContext();
+
+            document.getElementById('player-sim-search').value = currentPokemon.name;
+            document.getElementById('rival-sim-search').value = 'lugia';
+
+            setupPlayerOpponent(currentPokemon.name);
+            setupEnemyOpponent('lugia');
+            document.getElementById('battle-modal').classList.remove('hidden');
+        }
+
+        function closeBattleSimulator() {
+            document.getElementById('battle-modal').classList.add('hidden');
+            document.body.classList.remove('battle-landscape');
+            try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(e){}
+        }
+
+        async function setupPlayerOpponent(pokemonName) {
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const stats = parseStats(data.stats);
+
+                playerState = {
+                    name: data.name,
+                    maxHp: Math.round(stats.sta * 1.5),
+                    currentHp: Math.round(stats.sta * 1.5),
+                    atk: stats.atk,
+                    def: stats.def,
+                    sprite: isShiny ? (data.sprites.other?.showdown?.back_shiny || data.sprites.back_shiny || data.sprites.front_shiny) : (data.sprites.other?.showdown?.back_default || data.sprites.back_default || data.sprites.front_default),
+                    types: data.types.map(t => t.type.name),
+                    moves: generateBattleMoves({ types: data.types.map(t => t.type.name) })
+                };
+
+                resetBattleUI();
+            } catch (err) {
+                console.error("Error setting player pokemon:", err);
+            }
+        }
+
+        async function setupEnemyOpponent(rivalNameKey) {
+            let rivalName = rivalNameKey;
+            if (rivalNameKey === 'random') {
+                const presets = ['mewtwo', 'rayquaza', 'charizard', 'lugia', 'gengar', 'kyogre'];
+                rivalName = presets[Math.floor(Math.random() * presets.length)];
+            }
+
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${rivalName}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const stats = parseStats(data.stats);
+
+                enemyState = {
+                    name: data.name,
+                    maxHp: Math.round(stats.sta * 1.8),
+                    currentHp: Math.round(stats.sta * 1.8),
+                    atk: stats.atk,
+                    def: stats.def,
+                    sprite: data.sprites.other?.showdown?.front_default || data.sprites.front_default,
+                    types: data.types.map(t => t.type.name),
+                    moves: generateBattleMoves({ types: data.types.map(t => t.type.name) })
+                };
+
+                resetBattleUI();
+            } catch (err) {
+                console.error("Error setting enemy:", err);
+            }
+        }
+
+        function filterSimSuggestions(target) {
+            const inputId = target === 'player' ? 'player-sim-search' : 'rival-sim-search';
+            const boxId = target === 'player' ? 'player-sim-suggestions' : 'rival-sim-suggestions';
+            
+            const query = document.getElementById(inputId).value.toLowerCase().trim();
+            const suggestionsBox = document.getElementById(boxId);
+
+            if (!query || pokemonListCache.length === 0) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+
+            const matches = pokemonListCache.filter(p => p.name.includes(query)).slice(0, 5);
+            if (matches.length === 0) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+
+            suggestionsBox.innerHTML = matches.map(m => `
+                <div onclick="selectSimPokemon('${target}', '${m.name}')" class="px-3 py-2 hover:bg-slate-800 cursor-pointer text-[11px] uppercase text-slate-200 border-b border-slate-800/60 flex justify-between items-center">
+                    <span>${m.name}</span>
+                    <i class="fa-solid fa-arrow-right text-[9px] text-slate-500"></i>
+                </div>
+            `).join('');
+
+            suggestionsBox.classList.remove('hidden');
+        }
+
+        function selectSimPokemon(target, name) {
+            if (target === 'player') {
+                document.getElementById('player-sim-search').value = name;
+                document.getElementById('player-sim-suggestions').classList.add('hidden');
+                setupPlayerOpponent(name);
+            } else {
+                document.getElementById('rival-sim-search').value = name;
+                document.getElementById('rival-sim-suggestions').classList.add('hidden');
+                setupEnemyOpponent(name);
+            }
+        }
+
+        function generateBattleMoves(pokemonData) {
+            const pType = pokemonData.types[0] || 'fire';
+            const secondType = pokemonData.types[1] || 'normal';
+            return [
+                { name: 'Placaje Rápido', power: 35, type: 'normal' },
+                { name: `Ataque ${pType.toUpperCase()}`, power: 65, type: pType },
+                { name: `Impacto ${secondType.toUpperCase()}`, power: 85, type: secondType },
+                { name: 'Golpe Certero', power: 100, type: 'fighting' }
+            ];
+        }
+
+        function resetBattleUI() {
+            isBattleOver = false;
+            isPlayerTurn = true;
+            playerState.currentHp = playerState.maxHp;
+            enemyState.currentHp = enemyState.maxHp;
+
+            document.getElementById('player-name').innerText = playerState.name;
+            document.getElementById('player-sprite').src = playerState.sprite;
+            document.getElementById('enemy-name').innerText = enemyState.name;
+            document.getElementById('enemy-sprite').src = enemyState.sprite;
+
+            updateHpBars();
+
+            document.getElementById('moves-grid').innerHTML = playerState.moves.map((m, idx) => `
+                <button onclick="executePlayerTurn(${idx})" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-left flex flex-col justify-between transition group">
+                    <span class="font-pixel text-[10px] text-yellow-300 group-hover:text-yellow-400 uppercase">${m.name}</span>
+                    <div class="flex justify-between items-center text-[9px] mt-1 text-slate-400">
+                        <span class="uppercase px-1.5 py-0.5 rounded ${typeColors[m.type] || 'bg-slate-700'}">${m.type}</span>
+                        <span>PWR: ${m.power}</span>
+                    </div>
+                </button>
+            `).join('');
+
+            setBattleMessage(`¡Un ${enemyState.name.toUpperCase()} salvaje ha aparecido!`);
+        }
+
+        function updateHpBars() {
+            const pPct = Math.max(0, (playerState.currentHp / playerState.maxHp) * 100);
+            const ePct = Math.max(0, (enemyState.currentHp / enemyState.maxHp) * 100);
+
+            const pBar = document.getElementById('player-hp-bar');
+            const eBar = document.getElementById('enemy-hp-bar');
+
+            pBar.style.width = `${pPct}%`;
+            eBar.style.width = `${ePct}%`;
+
+            pBar.className = `h-full rounded-full transition-all duration-300 ${pPct > 50 ? 'bg-emerald-400' : pPct > 20 ? 'bg-yellow-400' : 'bg-red-500'}`;
+            eBar.className = `h-full rounded-full transition-all duration-300 ${ePct > 50 ? 'bg-emerald-400' : ePct > 20 ? 'bg-yellow-400' : 'bg-red-500'}`;
+
+            document.getElementById('player-hp-num').innerText = `${Math.max(0, playerState.currentHp)}/${playerState.maxHp}`;
+            document.getElementById('enemy-hp-num').innerText = `${Math.max(0, enemyState.currentHp)}/${enemyState.maxHp}`;
+        }
+
+        function setBattleMessage(msg) {
+            document.getElementById('battle-message').innerText = msg;
+        }
+
+        function executePlayerTurn(moveIndex) {
+            if (!isPlayerTurn || isBattleOver) return;
+
+            const move = playerState.moves[moveIndex];
+            isPlayerTurn = false;
+
+            playTypeSound(move.type);
+
+            const playerImg = document.getElementById('player-sprite');
+            playerImg.classList.add('animate-attack-player');
+            setTimeout(() => playerImg.classList.remove('animate-attack-player'), 400);
+
+            triggerElementalFX(move.type, 'player');
+
+            let isCrit = Math.random() < 0.15;
+            let damage = Math.floor(((20 * move.power * (playerState.atk / enemyState.def)) / 50 + 2) * (isCrit ? 1.5 : 1));
+
+            enemyState.currentHp -= damage;
+
+            setTimeout(() => {
+                const enemyImg = document.getElementById('enemy-sprite');
+                enemyImg.classList.add('animate-shake');
+                setTimeout(() => enemyImg.classList.remove('animate-shake'), 400);
+
+                showDamagePopup(damage, 'enemy', isCrit);
+                updateHpBars();
+
+                setBattleMessage(`${playerState.name.toUpperCase()} usó ${move.name.toUpperCase()}.${isCrit ? ' ¡Golpe Crítico!' : ''}`);
+
+                if (enemyState.currentHp <= 0) {
+                    isBattleOver = true;
+                    setTimeout(() => setBattleMessage(`¡${enemyState.name.toUpperCase()} se ha debilitado! ¡VICTORIA!`), 1000);
+                    return;
+                }
+
+                setTimeout(executeEnemyTurn, 1500);
+            }, 500);
+        }
+
+        function executeEnemyTurn() {
+            if (isBattleOver) return;
+
+            const enemyMove = enemyState.moves[Math.floor(Math.random() * enemyState.moves.length)];
+            
+            playTypeSound(enemyMove.type);
+
+            const enemyImg = document.getElementById('enemy-sprite');
+            enemyImg.classList.add('animate-attack-enemy');
+            setTimeout(() => enemyImg.classList.remove('animate-attack-enemy'), 400);
+
+            triggerElementalFX(enemyMove.type, 'enemy');
+
+            let isCrit = Math.random() < 0.15;
+            let damage = Math.floor(((20 * enemyMove.power * (enemyState.atk / playerState.def)) / 50 + 2) * (isCrit ? 1.5 : 1));
+
+            playerState.currentHp -= damage;
+
+            setTimeout(() => {
+                const playerImg = document.getElementById('player-sprite');
+                playerImg.classList.add('animate-shake');
+                setTimeout(() => playerImg.classList.remove('animate-shake'), 400);
+
+                showDamagePopup(damage, 'player', isCrit);
+                updateHpBars();
+
+                setBattleMessage(`¡El rival ${enemyState.name.toUpperCase()} usó ${enemyMove.name.toUpperCase()}!`);
+
+                if (playerState.currentHp <= 0) {
+                    isBattleOver = true;
+                    setTimeout(() => setBattleMessage(`¡${playerState.name.toUpperCase()} se ha debilitado! Has sido derrotado.`), 1000);
+                    return;
+                }
+
+                isPlayerTurn = true;
+            }, 500);
+        }
+
+        /* LÓGICA DE EFECTOS ESPECIALES DE ATAQUES SEGÚN TIPO */
+        function triggerElementalFX(type, attacker) {
+            const layer = document.getElementById('fx-layer');
+            const fx = document.createElement('div');
+
+            let fxClass = 'fx-none';
+
+            switch (type) {
+                case 'grass':
+                    fxClass = 'fx-grass';
+                    break;
+                case 'fire':
+                    fxClass = 'fx-fire';
+                    break;
+                case 'water':
+                    fxClass = 'fx-water';
+                    break;
+                case 'flying':
+                    fxClass = 'fx-flying';
+                    break;
+                case 'poison':
+                    fxClass = 'fx-poison';
+                    break;
+                case 'electric':
+                    fxClass = 'fx-electric';
+                    break;
+                case 'ghost':
+                    fxClass = 'fx-ghost';
+                    break;
+                case 'dark':
+                    fxClass = 'fx-dark';
+                    break;
+                case 'fairy':
+                    fxClass = 'fx-fairy';
+                    break;
+                case 'rock':
+                    fxClass = 'fx-rock';
+                    break;
+                case 'ice':
+                    fxClass = 'fx-ice';
+                    break;
+                case 'bug':
+                    fxClass = 'fx-bug';
+                    break;
+                case 'dragon':
+                    fxClass = 'fx-dragon';
+                    break;
+                case 'psychic':
+                    fxClass = 'fx-psychic';
+                    break;
+                case 'fighting':
+                case 'normal':
+                default:
+                    fxClass = 'fx-none'; // Tipo lucha y normal solo se acercan (animación de emisor)
+                    break;
+            }
+
+            if (fxClass === 'fx-none') return;
+
+            if (attacker === 'player') {
+                fx.className = `absolute w-12 h-12 ${fxClass} proj-player`;
+                fx.style.bottom = '20%';
+                fx.style.left = '20%';
+            } else {
+                fx.className = `absolute w-12 h-12 ${fxClass} proj-enemy`;
+                fx.style.top = '20%';
+                fx.style.right = '20%';
+            }
+
+            layer.appendChild(fx);
+            setTimeout(() => fx.remove(), 550);
+        }
+
+        function showDamagePopup(dmg, target, isCrit) {
+            const layer = document.getElementById('fx-layer');
+            const popup = document.createElement('div');
+            popup.className = `absolute font-pixel font-black text-sm ${isCrit ? 'text-yellow-300 text-base' : 'text-red-500'} damage-popup`;
+            
+            if (target === 'enemy') {
+                popup.style.top = '20%';
+                popup.style.right = '20%';
+            } else {
+                popup.style.bottom = '20%';
+                popup.style.left = '20%';
+            }
+
+            popup.innerText = `-${dmg}${isCrit ? ' CRÍTICO!' : ''}`;
+            layer.appendChild(popup);
+
+            setTimeout(() => popup.remove(), 800);
+        }
+
+        function resetBattle() {
+            resetBattleUI();
+        }
+    </script>
+
+<!-- Pantalla de elección de dispositivo (controles nativos = fiables en móvil) -->
+<div id="device-mode-screen" class="notranslate" translate="no" role="dialog" aria-modal="true"
+     style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;background:rgba(2,6,23,0.98);pointer-events:auto;-webkit-overflow-scrolling:touch;">
+  <form id="device-mode-form" translate="no"
+        style="width:min(100%,520px);margin:auto;padding:20px 16px;text-align:center;background:#0f172a;border:1px solid rgba(250,204,21,0.35);border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.55);pointer-events:auto;">
+    <div style="font-size:2.5rem;margin-bottom:8px">⚡</div>
+    <p style="font-size:12px;letter-spacing:0.2em;color:#facc15;font-weight:800;margin:0 0 10px">POKÉASSISTANT</p>
+    <h1 style="font-size:clamp(1.4rem,5vw,2.2rem);font-weight:900;line-height:1.15;margin:0 0 10px;color:#f8fafc">¿Dónde vas a jugar?</h1>
+    <p style="color:#b8c5d9;margin:0 auto 16px;max-width:480px;font-size:14px">Elige un modo y luego pulsa <b style="color:#fde047">Confirmar</b></p>
+
+    <div style="display:grid;gap:12px;text-align:left;margin-bottom:16px">
+      <label id="label-mobile" for="radio-mobile"
+        style="display:block;padding:14px;border:2px solid #334155;border-radius:16px;background:#111827;cursor:pointer;pointer-events:auto;-webkit-tap-highlight-color:rgba(250,204,21,0.25);">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <input type="radio" name="device_mode" id="radio-mobile" value="mobile"
+                 style="width:22px;height:22px;margin-top:2px;accent-color:#facc15;pointer-events:auto;flex-shrink:0;">
+          <div>
+            <div style="font-weight:800;color:#f8fafc;font-size:15px;margin-bottom:4px">📱 MODO CELULAR</div>
+            <div style="font-size:13px;color:#94a3b8;line-height:1.35">Interfaz compacta y batallas táctiles.</div>
+            <div style="font-size:12px;color:#fde047;font-weight:800;margin-top:6px">RECOMENDADO PARA TELÉFONO</div>
+          </div>
+        </div>
+      </label>
+
+      <label id="label-desktop" for="radio-desktop"
+        style="display:block;padding:14px;border:2px solid #334155;border-radius:16px;background:#111827;cursor:pointer;pointer-events:auto;-webkit-tap-highlight-color:rgba(250,204,21,0.25);">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <input type="radio" name="device_mode" id="radio-desktop" value="desktop"
+                 style="width:22px;height:22px;margin-top:2px;accent-color:#facc15;pointer-events:auto;flex-shrink:0;">
+          <div>
+            <div style="font-weight:800;color:#f8fafc;font-size:15px;margin-bottom:4px">🖥️ MODO COMPUTADOR</div>
+            <div style="font-size:13px;color:#94a3b8;line-height:1.35">Más espacio para paneles y estadísticas.</div>
+            <div style="font-size:12px;color:#fde047;font-weight:800;margin-top:6px">USAR DISEÑO AMPLIO</div>
+          </div>
+        </div>
+      </label>
+    </div>
+
+    <p id="device-pick-hint" style="font-size:13px;color:#94a3b8;margin:0 0 12px;min-height:1.2em">Marca una opción con el círculo</p>
+
+    <button type="submit" id="btn-mode-confirm"
+      style="width:100%;padding:16px;border:0;border-radius:16px;font-weight:900;font-size:16px;letter-spacing:0.04em;cursor:pointer;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:rgba(250,204,21,0.35);background:linear-gradient(90deg,#eab308,#f59e0b);color:#0f172a;">
+      CONFIRMAR
+    </button>
+
+    <p style="font-size:12px;color:#64748b;margin:14px 0 0">Si no responde: desactiva "Traducir página" en Chrome y recarga.</p>
+  </form>
+</div>
+
+<script>
+(function () {
+  function applyMode(mode) {
+    var m = (mode === 'mobile') ? 'mobile' : 'desktop';
+    try {
+      document.body.classList.remove('mode-mobile', 'mode-desktop', 'choosing-device-mode');
+      document.body.classList.add(m === 'mobile' ? 'mode-mobile' : 'mode-desktop');
+    } catch (e) {}
+    try { localStorage.setItem('pokeassistant-device-mode', m); } catch (e) {}
+    var el = document.getElementById('device-mode-screen');
+    if (el) {
+      el.style.display = 'none';
+      el.setAttribute('hidden', '');
+      try { el.remove(); } catch (e2) {
+        try { if (el.parentNode) el.parentNode.removeChild(el); } catch (e3) {}
+      }
+    }
+  }
+
+  window.chooseDeviceMode = applyMode;
+  window.resetDeviceModeChoice = function () {
+    try { localStorage.removeItem('pokeassistant-device-mode'); } catch (e) {}
+    location.reload();
+  };
+
+  var saved = null;
+  try { saved = localStorage.getItem('pokeassistant-device-mode'); } catch (e) {}
+  if (saved === 'mobile' || saved === 'desktop') {
+    applyMode(saved);
+    return;
+  }
+
+  document.body.classList.add('choosing-device-mode');
+
+  var form = document.getElementById('device-mode-form');
+  var hint = document.getElementById('device-pick-hint');
+  var labelMobile = document.getElementById('label-mobile');
+  var labelDesktop = document.getElementById('label-desktop');
+  var radioMobile = document.getElementById('radio-mobile');
+  var radioDesktop = document.getElementById('radio-desktop');
+
+  function refreshUI() {
+    var mode = null;
+    if (radioMobile && radioMobile.checked) mode = 'mobile';
+    if (radioDesktop && radioDesktop.checked) mode = 'desktop';
+    if (labelMobile) {
+      labelMobile.style.borderColor = mode === 'mobile' ? '#facc15' : '#334155';
+      labelMobile.style.boxShadow = mode === 'mobile' ? '0 0 0 2px rgba(250,204,21,0.3)' : 'none';
+    }
+    if (labelDesktop) {
+      labelDesktop.style.borderColor = mode === 'desktop' ? '#facc15' : '#334155';
+      labelDesktop.style.boxShadow = mode === 'desktop' ? '0 0 0 2px rgba(250,204,21,0.3)' : 'none';
+    }
+    if (hint) {
+      if (mode === 'mobile') {
+        hint.textContent = 'Seleccionado: CELULAR — pulsa Confirmar';
+        hint.style.color = '#fde047';
+      } else if (mode === 'desktop') {
+        hint.textContent = 'Seleccionado: COMPUTADOR — pulsa Confirmar';
+        hint.style.color = '#fde047';
+      } else {
+        hint.textContent = 'Marca una opción con el círculo';
+        hint.style.color = '#94a3b8';
+      }
+    }
+  }
+
+  if (radioMobile) radioMobile.addEventListener('change', refreshUI);
+  if (radioDesktop) radioDesktop.addEventListener('change', refreshUI);
+  // También al tocar el label
+  if (labelMobile) labelMobile.addEventListener('click', function () { setTimeout(refreshUI, 0); });
+  if (labelDesktop) labelDesktop.addEventListener('click', function () { setTimeout(refreshUI, 0); });
+
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      try { e.preventDefault(); } catch (err) {}
+      var mode = null;
+      if (radioMobile && radioMobile.checked) mode = 'mobile';
+      if (radioDesktop && radioDesktop.checked) mode = 'desktop';
+      if (!mode) {
+        if (hint) {
+          hint.textContent = 'Primero marca Celular o Computador';
+          hint.style.color = '#f87171';
+        }
+        return false;
+      }
+      applyMode(mode);
+      return false;
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
